@@ -1,0 +1,24 @@
+(in-package :vm1)
+
+(define-condition vm-error (error)
+  ((instruction :initarg :instruction :reader vm-error-instruction)
+   (message :initarg :message :initform nil :reader vm-error-message))
+  (:report
+   (lambda (c s)
+     (format s "VM error in ~S: ~A"
+             (vm-error-instruction c)
+             (vm-error-message c)))))
+
+(define-condition vm-divide-by-zero (vm-error) ()
+  (:report (lambda (c s)
+             (format s "divide by zero in ~S" (vm-error-instruction c)))))
+
+(define-condition vm-type-error (vm-error)
+  ((expected :initarg :expected :reader vm-error-expected)
+   (actual :initarg :actual :reader vm-error-actual))
+  (:report
+   (lambda (c s)
+     (format s "type error in ~S: expected ~A, got ~A"
+             (vm-error-instruction c)
+             (vm-error-expected c)
+             (vm-error-actual c)))))
