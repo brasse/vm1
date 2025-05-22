@@ -141,6 +141,9 @@
           (jmp (args-1 target (jmp target)))
           (jz (args-2 condition target (jz (resolve-value frame-stack condition) target)))
           (jnz (args-2 condition target (jnz (resolve-value frame-stack condition) target)))
+          (print (args-1 a
+                   (format t "~A~%" (vm-value-str (resolve-value frame-stack a)))
+                   '(:continue)))
           (call (destructuring-bind (target . args) (cdr instruction)
                   (let ((resolved-values
                           (loop for arg in args collect (resolve-value frame-stack arg))))
