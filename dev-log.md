@@ -10,4 +10,5 @@
 ### Next
 
 - Remove `frame-stack-*` helpers. Just keep the push and pop.
+- Add assembler so that we get labels to use for jumps.
 - Tests of course.
