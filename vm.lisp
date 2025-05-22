@@ -175,30 +175,37 @@
       (vm-error (e) `(:trap :error ,(vm-error-message e)))
       )))
 
-(defun run-program (&key (program '()) (frame-stack (list (make-frame))) (trace nil))
+(defun run-program (&key program (frame-stack (list (make-frame))) trace report-state-callback)
   (let ((pc 0) (done nil))
     (loop while (and (not done) (< pc (length program))) do
       (let ((instruction (aref program pc)))
         (when trace
           (format t "~A: ~A~%" pc instruction))
-        (let ((control-directive (execute instruction frame-stack (1+ pc))))
-          (case (car control-directive)
-            (:continue (incf pc))
-            (:jump (setf pc (cadr control-directive)))
-            (:call
-             (setf pc (cadr control-directive))
-             (setf frame-stack (caddr control-directive)))
-            (:return
-              (setf pc (cadr control-directive))
-              (setf frame-stack (caddr control-directive)))
-            (:done (setf done t))
-            (:trap
-             (format t "trap: ~A~%" (cdr control-directive))
-             (setf done t)))))))
-  frame-stack)
+        (if (eq (car instruction) 'report)
+            (progn
+              (when (and trace report-state-callback)
+                (funcall report-state-callback frame-stack))
+              (incf pc))
+            (let ((control-directive (execute instruction frame-stack (1+ pc))))
+              (case (car control-directive)
+                (:continue (incf pc))
+                (:jump (setf pc (cadr control-directive)))
+                (:call
+                 (setf pc (cadr control-directive))
+                 (setf frame-stack (caddr control-directive)))
+                (:return
+                  (setf pc (cadr control-directive))
+                  (setf frame-stack (caddr control-directive)))
+                (:done (setf done t))
+                (:trap
+                 (format t "trap: ~A~%" (cdr control-directive))
+                 (setf done t)))))))))
 
-(defun fancy-run-program (&key (program nil) (trace nil))
+(defun fancy-run-program (&key program trace)
   (let ((frame-stack (list (make-frame))))
-    (let ((frame-stack-after
-            (run-program :program program :frame-stack frame-stack :trace trace)))
-      (format t (frame-stack-str frame-stack-after)))))
+    (run-program
+     :program program
+     :frame-stack frame-stack
+     :trace trace
+     :report-state-callback (lambda (frame-stack)
+                              (format t "~A" (frame-stack-str frame-stack))))))
