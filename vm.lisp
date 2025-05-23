@@ -4,9 +4,9 @@
   (declare (special *instruction*))
   *instruction*)
 
-(defun resolve-value (frame-stack x)
+(defun resolve-value (frame x)
   (if (symbolp x)
-      (frame-stack-get-reg frame-stack x)
+      (frame-get-reg frame x)
       (vm-value-make-literal x)))
 
 (defmacro def-int-binary-op (name op)
@@ -64,7 +64,7 @@
 
 (defun ret (frame-stack return-address return-values)
   (let ((return-stack (frame-stack-pop-frame frame-stack)))
-    (frame-stack-set-return-values return-stack return-values)
+    (setf (frame-return-values (car return-stack)) return-values)
     `(:return ,return-address ,return-stack)))
 
 (defmacro args-1 (arg1 &body body)
@@ -85,92 +85,92 @@
     (handler-case
         (case head
           (const (args-2 dst literal
-                   (frame-stack-set-reg frame-stack dst (vm-value-make-literal literal))
+                   (frame-set-reg (car frame-stack) dst (vm-value-make-literal literal))
                    '(:continue)))
           (mov (args-2 dst a
-                 (frame-stack-set-reg frame-stack dst (resolve-value frame-stack a))
+                 (frame-set-reg (car frame-stack) dst (resolve-value (car frame-stack) a))
                  '(:continue)))
           (add (args-3 dst a b
-                 (frame-stack-set-reg
-                  frame-stack
+                 (frame-set-reg
+                  (car frame-stack)
                   dst
-                  (add (resolve-value frame-stack a) (resolve-value frame-stack b)))
+                  (add (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                  '(:continue)))
           (sub (args-3 dst a b
-                 (frame-stack-set-reg
-                  frame-stack
+                 (frame-set-reg
+                  (car frame-stack)
                   dst
-                  (sub (resolve-value frame-stack a) (resolve-value frame-stack b)))
+                  (sub (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                  '(:continue)))
           (mul (args-3 dst a b
-                 (frame-stack-set-reg
-                  frame-stack
+                 (frame-set-reg
+                  (car frame-stack)
                   dst
-                  (mul (resolve-value frame-stack a) (resolve-value frame-stack b)))
+                  (mul (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                  '(:continue)))
           (div (args-3 dst a b
-                 (frame-stack-set-reg
-                  frame-stack
+                 (frame-set-reg
+                  (car frame-stack)
                   dst
-                  (div (resolve-value frame-stack a) (resolve-value frame-stack b)))
+                  (div (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                  '(:continue)))
           (mod (args-3 dst a b
-                 (frame-stack-set-reg
-                  frame-stack
+                 (frame-set-reg
+                  (car frame-stack)
                   dst
-                  (vm1-mod (resolve-value frame-stack a) (resolve-value frame-stack b)))
+                  (vm1-mod (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                  '(:continue)))
           (eq (args-3 dst a b
-                (frame-stack-set-reg
-                 frame-stack
+                (frame-set-reg
+                 (car frame-stack)
                  dst
-                 (vm1-eq (resolve-value frame-stack a) (resolve-value frame-stack b)))
+                 (vm1-eq (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                 '(:continue)))
           (gt (args-3 dst a b
-                (frame-stack-set-reg
-                 frame-stack
+                (frame-set-reg
+                 (car frame-stack)
                  dst
-                 (gt (resolve-value frame-stack a) (resolve-value frame-stack b)))
+                 (gt (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                 '(:continue)))
           (lt (args-3 dst a b
-                (frame-stack-set-reg
-                 frame-stack
+                (frame-set-reg
+                 (car frame-stack)
                  dst
-                 (lt (resolve-value frame-stack a) (resolve-value frame-stack b)))
+                 (lt (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                 '(:continue)))
           (jmp (args-1 target (jmp target)))
-          (jz (args-2 condition target (jz (resolve-value frame-stack condition) target)))
-          (jnz (args-2 condition target (jnz (resolve-value frame-stack condition) target)))
+          (jz (args-2 condition target (jz (resolve-value (car frame-stack) condition) target)))
+          (jnz (args-2 condition target (jnz (resolve-value (car frame-stack) condition) target)))
           (print (args-1 a
-                   (format t "~A~%" (vm-value-str (resolve-value frame-stack a)))
+                   (format t "~A~%" (vm-value-str (resolve-value (car frame-stack) a)))
                    '(:continue)))
           (call (destructuring-bind (target . args) (cdr instruction)
                   (let ((resolved-values
-                          (loop for arg in args collect (resolve-value frame-stack arg))))
+                          (loop for arg in args collect (resolve-value (car frame-stack) arg))))
                     (call frame-stack target resolved-values return-address))))
           (ret (let ((resolved-returns
-                       (loop for ret in (cdr instruction) collect (resolve-value frame-stack ret))))
-                 (ret frame-stack (frame-stack-get-return-address frame-stack) resolved-returns)))
+                       (loop for ret in (cdr instruction) collect (resolve-value (car frame-stack) ret))))
+                 (ret frame-stack (frame-return-address (car frame-stack)) resolved-returns)))
           (get-arg (args-2 dst n
-                     (frame-stack-set-reg
-                      frame-stack
+                     (frame-set-reg
+                      (car frame-stack)
                       dst
-                      (frame-stack-get-arg frame-stack n))
+                      (frame-get-arg (car frame-stack) n))
                      '(:continue)))
           (get-ret (args-2 dst n
-                     (frame-stack-set-reg
-                      frame-stack
+                     (frame-set-reg
+                      (car frame-stack)
                       dst
-                      (frame-stack-get-return-value frame-stack n))
+                      (nth n (frame-return-values (car frame-stack))))
                      '(:continue)))
           (get-ret-count (args-1 dst
-                           (frame-stack-set-reg
-                            frame-stack
+                           (frame-set-reg
+                            (car frame-stack)
                             dst
                             (vm-value-make-int (length (frame-return-values (car frame-stack)))))
                            '(:continue)))
-          (scope-enter (frame-stack-push-scope frame-stack) '(:continue))
-          (scope-exit (frame-stack-pop-scope frame-stack) '(:continue))
+          (scope-enter (frame-push-scope (car frame-stack)) '(:continue))
+          (scope-exit (frame-pop-scope (car frame-stack)) '(:continue))
           (halt '(:done))
           (t (error 'vm-error
                     :message "unknown instruction" :instruction instruction)))

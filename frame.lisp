@@ -65,30 +65,6 @@
 (defun frame-stack-pop-frame (frame-stack)
   (cdr frame-stack))
 
-(defun frame-stack-push-scope (frame-stack)
-  (frame-push-scope (car frame-stack)))
-
-(defun frame-stack-pop-scope (frame-stack)
-  (frame-pop-scope (car frame-stack)))
-
-(defun frame-stack-set-reg (frame-stack reg value)
-  (frame-set-reg (car frame-stack) reg value))
-
-(defun frame-stack-get-reg (frame-stack reg)
-  (frame-get-reg (car frame-stack) reg))
-
-(defun frame-stack-get-arg (frame-stack n)
-  (frame-get-arg (car frame-stack) n))
-
-(defun frame-stack-get-return-address (frame-stack)
-  (frame-return-address (car frame-stack)))
-
-(defun frame-stack-set-return-values (frame-stack return-values)
-  (setf (frame-return-values (car frame-stack)) return-values))
-
-(defun frame-stack-get-return-value (frame-stack n)
-  (nth n (frame-return-values (car frame-stack))))
-
 (defun frame-stack-str (frame-stack)
   (format nil "~{~A~%~}"
           (loop
