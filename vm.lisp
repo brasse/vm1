@@ -205,7 +205,7 @@
                  (setf done t)))))))))
 
 (defun fancy-run-program (&key program trace)
-  (let ((frame-stack (list (make-frame))))
+  (let ((frame-stack (list (make-frame))) (program (assemble program)))
     (run-program
      :program program
      :frame-stack frame-stack

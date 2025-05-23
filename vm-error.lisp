@@ -22,3 +22,12 @@
              (vm-error-instruction c)
              (vm-error-expected c)
              (vm-error-actual c)))))
+
+(define-condition asm-error (error)
+  ((instruction :initarg :instruction :reader asm-error-instruction)
+   (message :initarg :message :initform nil :reader asm-error-message))
+  (:report
+   (lambda (c s)
+     (format s "ASM error in ~S: ~A"
+             (asm-error-instruction c)
+             (asm-error-message c)))))

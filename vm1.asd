@@ -9,4 +9,5 @@
                (:file "vm-value")
                (:file "frame")
                (:file "vm")
+               (:file "assembler")
                (:file "tests/frame-test")))
