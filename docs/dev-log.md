@@ -12,3 +12,12 @@
 - Remove `frame-stack-*` helpers. Just keep the push and pop.
 - Add assembler so that we get labels to use for jumps.
 - Tests of course.
+
+## 2025-05-23
+
+- Removed most frame-stack-* helpers
+- Implemted tiny assebler to get labels
+
+### Next
+
+- Tests of course, always the tests.
