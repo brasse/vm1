@@ -21,3 +21,14 @@
 ### Next
 
 - Tests of course, always the tests.
+
+## 2025-05-26
+
+- Added some example programs
+- Added `tail-call` instruction
+  - `tail-call` reuses the current frame instead of pushing
+    a new one.
+
+### Next
+
+- Tests of course, always the tests.
