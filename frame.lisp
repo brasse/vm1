@@ -6,11 +6,11 @@
   return-values
   scopes)
 
-(defun make-frame (&key (args nil) (return-address nil) (scopes nil))
+(defun make-frame (&key args return-address)
   (%make-frame :args args
                :return-address return-address
                :return-values nil
-               :scopes scopes))
+               :scopes (list (make-hash-table))))
 
 (defun frame-push-scope (frame)
   (push (make-hash-table) (frame-scopes frame)))
@@ -61,7 +61,7 @@
 
 (defun frame-stack-push-frame (frame-stack args return-address)
   (cons
-   (make-frame :args args :return-address return-address :scopes (list (make-hash-table)))
+   (make-frame :args args :return-address return-address)
    frame-stack))
 
 (defun frame-stack-pop-frame (frame-stack)
