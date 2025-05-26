@@ -139,8 +139,8 @@
                  (lt (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                 '(:continue)))
           (jmp (args-1 target (jmp target)))
-          (jz (args-2 condition target (jz (resolve-value (car frame-stack) condition) target)))
-          (jnz (args-2 condition target (jnz (resolve-value (car frame-stack) condition) target)))
+          (jz (args-2 target condition (jz (resolve-value (car frame-stack) condition) target)))
+          (jnz (args-2 target condition (jnz (resolve-value (car frame-stack) condition) target)))
           (print (args-1 a
                    (format t "~A~%" (vm-value-str (resolve-value (car frame-stack) a)))
                    '(:continue)))

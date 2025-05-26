@@ -14,11 +14,13 @@
            for x = (case (car instruction)
                      (label nil)
                      ((jmp jz jnz call)
-                      (let ((target (gethash (cadr instruction) the-labels)))
+                      (let ((head (car instruction))
+                            (tail (cddr instruction))
+                            (target (gethash (cadr instruction) the-labels)))
                         (unless target
                           (error 'asm-error :instruction instruction
                                             :message "undefined label"))
-                        (append (list (car instruction) target) (cddr instruction))))
+                        (append (list head target) tail)))
                      (t instruction))
            when x collect x)
      'vector)))
