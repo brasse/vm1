@@ -60,7 +60,9 @@
 
 
 (defun frame-stack-push-frame (frame-stack args return-address)
-  (cons (make-frame :args args :return-address return-address) frame-stack))
+  (cons
+   (make-frame :args args :return-address return-address :scopes (list (make-hash-table)))
+   frame-stack))
 
 (defun frame-stack-pop-frame (frame-stack)
   (cdr frame-stack))
