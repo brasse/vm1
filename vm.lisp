@@ -56,9 +56,18 @@
     ((not (vm-value-falsep condition)) `(:jump ,target))
     (t '(:continue))))
 
-(defun call (frame-stack target args return-address)
+(defun normal-call (frame-stack target args return-address)
   (if (integerp target)
       `(:call ,target ,(frame-stack-push-frame frame-stack args return-address))
+      (error 'vm-error :instruction (current-instruction)
+                       :message (format nil "malformed target: ~A" target))))
+
+(defun tail-call (frame-stack target args)
+  (if (integerp target)
+      (let ((top-frame (car frame-stack)))
+        (setf (frame-args top-frame) args)
+        (setf (frame-scopes top-frame) (list (make-hash-table)))
+        `(:jump ,target))
       (error 'vm-error :instruction (current-instruction)
                        :message (format nil "malformed target: ~A" target))))
 
@@ -147,7 +156,11 @@
           (call (destructuring-bind (target . args) (cdr instruction)
                   (let ((resolved-values
                           (loop for arg in args collect (resolve-value (car frame-stack) arg))))
-                    (call frame-stack target resolved-values return-address))))
+                    (normal-call frame-stack target resolved-values return-address))))
+          (tail-call (destructuring-bind (target . args) (cdr instruction)
+                       (let ((resolved-values
+                               (loop for arg in args collect (resolve-value (car frame-stack) arg))))
+                         (tail-call frame-stack target resolved-values))))
           (ret (let ((resolved-returns
                        (loop for ret in (cdr instruction) collect (resolve-value (car frame-stack) ret))))
                  (ret frame-stack (frame-return-address (car frame-stack)) resolved-returns)))
