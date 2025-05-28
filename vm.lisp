@@ -18,6 +18,18 @@
                                :expected :int  :actual (list t1 t2)))
        (vm-value-make-int (funcall ,op v1 v2)))))
 
+(defmacro with-same-type+payload (v1 v2 &body body)
+  `(let ((t1 (vm-value-type ,v1))
+         (t2 (vm-value-type ,v2)))
+     (unless (eq t1 t2)
+       (error 'vm-type-error
+              :instruction (current-instruction)
+              :expected :same-type
+              :actual (list t1 t2)))
+     (let ((p1 (vm-value-payload ,v1))
+           (p2 (vm-value-payload ,v2)))
+       ,@body)))
+
 (def-int-binary-op add (lambda (a b) (+ a b)))
 (def-int-binary-op sub (lambda (a b) (- a b)))
 (def-int-binary-op mul (lambda (a b) (* a b)))
@@ -29,12 +41,30 @@
     (lambda (a b) (if (zerop b)
                       (error 'vm-divide-by-zero :instruction (current-instruction))
                       (nth-value 1 (truncate a b)))))
-(def-int-binary-op vm1-eq (lambda (a b) (if (= a b) 1 0)))
-(def-int-binary-op gt (lambda (a b) (if (> a b) 1 0)))
-(def-int-binary-op lt (lambda (a b) (if (< a b) 1 0)))
+(defun vm1-eq (a b)
+  (with-same-type+payload a b
+    (if (equal p1 p2) +vm-value-true+ +vm-value-false+)))
+
+(defun gt (a b)
+  (with-same-type+payload a b
+    (if (case t1
+          (:int (> p1 p2))
+          (:string (string> p1 p2))
+          (:bool (and (eq p1 t) (eq p2 nil))))
+        +vm-value-true+
+        +vm-value-false+)))
+
+(defun lt (a b)
+  (with-same-type+payload a b
+    (if (case t1
+          (:int (< p1 p2))
+          (:string (string< p1 p2))
+          (:bool (and (eq p1 nil) (eq p2 t))))
+        +vm-value-true+
+        +vm-value-false+)))
 
 (defun vm1-not (a)
-  (if (vm-value-falsep a) (vm-value-make-int 1) (vm-value-make-int 0)))
+  (if (vm-value-falsep a) +vm-value-true+ +vm-value-false+))
 
 (defun jmp (target)
   (cond
