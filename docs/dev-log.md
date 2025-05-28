@@ -32,3 +32,20 @@
 ### Next
 
 - Tests of course, always the tests.
+
+## 2025-05-28
+
+- Add not instruction
+- Add bool type
+  - Make all comparison operators return bool
+
+### Next
+
+- Need to move all vm-value related functions to vm-value.lisp.
+  vm.lisp will just use those functions when defining instructions.
+- Decide on how polymorphic things should be. I'm leaning towards
+  not too polymorphic.
+  - concat - yes, concats strings
+  - substr - yes
+  - Maybe this is it. Don't know yet.
+- Tests of course, always the tests.
