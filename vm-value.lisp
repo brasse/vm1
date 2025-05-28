@@ -4,10 +4,10 @@
   type
   payload)
 
-(defconstant +vm-value-false+
+(defparameter +vm-value-false+
   (make-vm-value :type :bool :payload nil))
 
-(defconstant +vm-value-true+
+(defparameter +vm-value-true+
   (make-vm-value :type :bool :payload t))
 
 (defun vm-value-make-int (i)
