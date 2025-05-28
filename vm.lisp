@@ -189,7 +189,7 @@
           (format t "~A: ~A~%" pc instruction))
         (if (eq (car instruction) 'report)
             (progn
-              (when (and trace report-state-callback)
+              (when report-state-callback
                 (funcall report-state-callback frame-stack))
               (incf pc))
             (let ((control-directive (execute instruction frame-stack (1+ pc))))
