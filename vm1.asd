@@ -11,4 +11,5 @@
                (:file "vm")
                (:file "assembler")
                (:file "examples/examples-asm")
-               (:file "tests/frame-test")))
+               (:file "tests/frame-test")
+               (:file "tests/instruction-test")))
