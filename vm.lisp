@@ -9,63 +9,6 @@
       (frame-get-reg frame x)
       (vm-value-make-literal x)))
 
-(defmacro def-int-binary-op (name op)
-  `(defun ,name (v1 v2)
-     (let ((t1 (vm-value-type v1)) (t2 (vm-value-type v2))
-           (v1 (vm-value-payload v1)) (v2 (vm-value-payload v2)))
-       (unless (and (eq t1 :int) (eq t2 :int))
-         (error 'vm-type-error :instruction (current-instruction)
-                               :expected :int  :actual (list t1 t2)))
-       (vm-value-make-int (funcall ,op v1 v2)))))
-
-(defmacro with-same-type+payload (v1 v2 &body body)
-  `(let ((t1 (vm-value-type ,v1))
-         (t2 (vm-value-type ,v2)))
-     (unless (eq t1 t2)
-       (error 'vm-type-error
-              :instruction (current-instruction)
-              :expected :same-type
-              :actual (list t1 t2)))
-     (let ((p1 (vm-value-payload ,v1))
-           (p2 (vm-value-payload ,v2)))
-       ,@body)))
-
-(def-int-binary-op add (lambda (a b) (+ a b)))
-(def-int-binary-op sub (lambda (a b) (- a b)))
-(def-int-binary-op mul (lambda (a b) (* a b)))
-(def-int-binary-op div
-    (lambda (a b) (if (zerop b)
-                      (error 'vm-divide-by-zero :instruction (current-instruction))
-                      (truncate a b))))
-(def-int-binary-op vm1-mod
-    (lambda (a b) (if (zerop b)
-                      (error 'vm-divide-by-zero :instruction (current-instruction))
-                      (nth-value 1 (truncate a b)))))
-(defun vm1-eq (a b)
-  (with-same-type+payload a b
-    (if (equal p1 p2) +vm-value-true+ +vm-value-false+)))
-
-(defun gt (a b)
-  (with-same-type+payload a b
-    (if (case t1
-          (:int (> p1 p2))
-          (:string (string> p1 p2))
-          (:bool (and (eq p1 t) (eq p2 nil))))
-        +vm-value-true+
-        +vm-value-false+)))
-
-(defun lt (a b)
-  (with-same-type+payload a b
-    (if (case t1
-          (:int (< p1 p2))
-          (:string (string< p1 p2))
-          (:bool (and (eq p1 nil) (eq p2 t))))
-        +vm-value-true+
-        +vm-value-false+)))
-
-(defun vm1-not (a)
-  (if (vm-value-falsep a) +vm-value-true+ +vm-value-false+))
-
 (defun jmp (target)
   (cond
     ((not (integerp target))
@@ -136,55 +79,63 @@
                  (frame-set-reg
                   (car frame-stack)
                   dst
-                  (add (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
+                  (vm-value-add
+                   (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                  '(:continue)))
           (sub (args-3 dst a b
                  (frame-set-reg
                   (car frame-stack)
                   dst
-                  (sub (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
+                  (vm-value-sub
+                   (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                  '(:continue)))
           (mul (args-3 dst a b
                  (frame-set-reg
                   (car frame-stack)
                   dst
-                  (mul (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
+                  (vm-value-mul
+                   (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                  '(:continue)))
           (div (args-3 dst a b
                  (frame-set-reg
                   (car frame-stack)
                   dst
-                  (div (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
+                  (vm-value-div
+                   (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                  '(:continue)))
           (mod (args-3 dst a b
                  (frame-set-reg
                   (car frame-stack)
                   dst
-                  (vm1-mod (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
+                  (vm-value-mod
+                   (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                  '(:continue)))
           (not (args-2 dst a
                  (frame-set-reg
                   (car frame-stack)
                   dst
-                  (vm1-not (resolve-value (car frame-stack) a)))
+                  (vm-value-not (resolve-value (car frame-stack) a)))
                  '(:continue)))
           (eq (args-3 dst a b
                 (frame-set-reg
                  (car frame-stack)
                  dst
-                 (vm1-eq (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
+                 (vm-value-eq
+                  (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                 '(:continue)))
           (gt (args-3 dst a b
                 (frame-set-reg
                  (car frame-stack)
                  dst
-                 (gt (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
+                 (vm-value-gt
+                  (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                 '(:continue)))
           (lt (args-3 dst a b
                 (frame-set-reg
                  (car frame-stack)
                  dst
-                 (lt (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
+                 (vm-value-lt
+                  (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
                 '(:continue)))
           (jmp (args-1 target (jmp target)))
           (jz (args-2 target condition (jz (resolve-value (car frame-stack) condition) target)))
