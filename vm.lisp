@@ -33,6 +33,9 @@
 (def-int-binary-op gt (lambda (a b) (if (> a b) 1 0)))
 (def-int-binary-op lt (lambda (a b) (if (< a b) 1 0)))
 
+(defun vm1-not (a)
+  (if (vm-value-falsep a) (vm-value-make-int 1) (vm-value-make-int 0)))
+
 (defun jmp (target)
   (cond
     ((not (integerp target))
@@ -128,6 +131,12 @@
                   (car frame-stack)
                   dst
                   (vm1-mod (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
+                 '(:continue)))
+          (not (args-2 dst a
+                 (frame-set-reg
+                  (car frame-stack)
+                  dst
+                  (vm1-not (resolve-value (car frame-stack) a)))
                  '(:continue)))
           (eq (args-3 dst a b
                 (frame-set-reg
