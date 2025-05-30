@@ -1,5 +1,12 @@
 (in-package :vm1)
 
+(defstruct vm-state
+  program
+  pc
+  frame-stack
+  heap
+  string-table)
+
 (defun current-instruction ()
   (declare (special *instruction*))
   *instruction*)
@@ -34,7 +41,7 @@
 
 (defun normal-call (frame-stack target args return-address)
   (if (integerp target)
-      `(:call ,target ,(frame-stack-push-frame frame-stack args return-address))
+      (values `(:call ,target) (frame-stack-push-frame frame-stack args return-address))
       (error 'vm-error :instruction (current-instruction)
                        :message (format nil "malformed target: ~A" target))))
 
@@ -50,7 +57,7 @@
 (defun ret (frame-stack return-address return-values)
   (let ((return-stack (frame-stack-pop-frame frame-stack)))
     (setf (frame-return-values (car return-stack)) return-values)
-    `(:return ,return-address ,return-stack)))
+    (values `(:return ,return-address) return-stack)))
 
 (defmacro args-1 (arg1 &body body)
   `(let ((,arg1 (cadr instruction)))
@@ -64,8 +71,12 @@
   `(let ((,arg1 (cadr instruction)) (,arg2 (caddr instruction)) (,arg3 (cadddr instruction)))
      ,@body))
 
-(defun execute (instruction frame-stack return-address)
-  (let ((head (car instruction)) (*instruction* instruction))
+(defun execute (vm)
+  (let* ((instruction (aref (vm-state-program vm) (vm-state-pc vm)))
+         (return-address (1+ (vm-state-pc vm)))
+         (frame-stack (vm-state-frame-stack vm))
+         (head (car instruction))
+         (*instruction* instruction))
     (declare (special *instruction*))
     (handler-case
         (case head
@@ -146,14 +157,20 @@
           (call (destructuring-bind (target . args) (cdr instruction)
                   (let ((resolved-values
                           (loop for arg in args collect (resolve-value (car frame-stack) arg))))
-                    (normal-call frame-stack target resolved-values return-address))))
+                    (multiple-value-bind (control-directive new-frame-stack)
+                        (normal-call frame-stack target resolved-values return-address)
+                      (setf (vm-state-frame-stack vm) new-frame-stack)
+                      control-directive))))
           (tail-call (destructuring-bind (target . args) (cdr instruction)
                        (let ((resolved-values
                                (loop for arg in args collect (resolve-value (car frame-stack) arg))))
                          (tail-call frame-stack target resolved-values))))
           (ret (let ((resolved-returns
                        (loop for ret in (cdr instruction) collect (resolve-value (car frame-stack) ret))))
-                 (ret frame-stack (frame-return-address (car frame-stack)) resolved-returns)))
+                 (multiple-value-bind (control-directive new-frame-stack)
+                     (ret frame-stack (frame-return-address (car frame-stack)) resolved-returns)
+                   (setf (vm-state-frame-stack vm) new-frame-stack)
+                   control-directive)))
           (get-arg (args-2 dst n
                      (frame-set-reg
                       (car frame-stack)
@@ -177,41 +194,40 @@
           (halt '(:done))
           (t (error 'vm-error
                     :message "unknown instruction" :instruction instruction)))
+      (vm-type-error (e) `(:trap :type-error ,(vm-error-message e)))
       (vm-divide-by-zero (e) `(:trap :divide-by-zero ,(vm-error-message e)))
       (vm-error (e) `(:trap :error ,(vm-error-message e)))
       )))
 
-(defun run-program (&key program (frame-stack (list (make-frame))) trace report-state-callback)
-  (let ((pc 0) (done nil))
-    (loop while (and (not done) (< pc (length program))) do
-      (let ((instruction (aref program pc)))
+(defun run-program (vm &key trace report-state-callback)
+  (let ((done nil) (trap-info nil))
+    (loop while (and (not done) (< (vm-state-pc vm) (length (vm-state-program vm)))) do
+      (let ((instruction (aref (vm-state-program vm) (vm-state-pc vm))))
         (when trace
-          (format t "~A: ~A~%" pc instruction))
+          (format t "~A: ~A~%" (vm-state-pc vm) instruction))
         (if (eq (car instruction) 'report)
             (progn
               (when report-state-callback
-                (funcall report-state-callback frame-stack))
-              (incf pc))
-            (let ((control-directive (execute instruction frame-stack (1+ pc))))
+                (funcall report-state-callback (vm-state-frame-stack vm)))
+              (incf (vm-state-pc vm)))
+            (let ((control-directive (execute vm)))
               (case (car control-directive)
-                (:continue (incf pc))
-                (:jump (setf pc (cadr control-directive)))
-                (:call
-                 (setf pc (cadr control-directive))
-                 (setf frame-stack (caddr control-directive)))
-                (:return
-                  (setf pc (cadr control-directive))
-                  (setf frame-stack (caddr control-directive)))
+                (:continue (incf (vm-state-pc vm)))
+                ((:jump :call :return)
+                 (setf (vm-state-pc vm) (cadr control-directive)))
                 (:done (setf done t))
                 (:trap
                  (format t "trap: ~A~%" (cdr control-directive))
-                 (setf done t)))))))))
+                 (setf trap-info (cdr control-directive))
+                 (setf done t)))))))
+    trap-info))
 
 (defun fancy-run-program (&key program trace)
-  (let ((frame-stack (list (make-frame))) (program (assemble program)))
+  (let ((vm (make-vm-state :program (assemble program)
+                           :pc 0
+                           :frame-stack (list (make-frame)))))
     (run-program
-     :program program
-     :frame-stack frame-stack
+     vm
      :trace trace
      :report-state-callback (lambda (frame-stack)
                               (format t "~A" (frame-stack-str frame-stack))))))
