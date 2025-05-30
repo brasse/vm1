@@ -49,3 +49,18 @@
   - substr - yes
   - Maybe this is it. Don't know yet.
 - Tests of course, always the tests.
+
+## 2025-05-30
+
+- Decided to stop doing the translation from VM error condigion to a
+  trap directive. Might introduce this later again if needed.
+- Added string interning. There's now a string table containing all
+  strings created. Strings are immutable in vm1 so we reuse common
+  strings and can use eq from string comparison. Very cool!
+- Finally some tests.
+
+### Next
+
+- The resolve-value function now needs a string-table to be able to
+  create string literals. Fix this by defining a closure over
+  string-table that has the same signature as resolve-value today.
