@@ -1,5 +1,11 @@
 (in-package :vm1)
 
+(define-condition vm-internal-error (error)
+  ((message :initarg :message :reader vm-internal-error-message))
+  (:report
+   (lambda (c s)
+     (format s "internal vm error: ~A" (vm-internal-error-message c)))))
+
 (define-condition vm-error (error)
   ((instruction :initarg :instruction :reader vm-error-instruction)
    (message :initarg :message :initform nil :reader vm-error-message))
@@ -31,3 +37,8 @@
      (format s "ASM error in ~S: ~A"
              (asm-error-instruction c)
              (asm-error-message c)))))
+
+(defmacro vm-assert (condition &optional (message "no message"))
+  `(unless ,condition
+     (error 'vm-internal-error :message
+            (format nil "~A (failed condition: ~S)" ,message ',condition))))

@@ -13,13 +13,20 @@
 (defun vm-value-make-int (i)
   (make-vm-value :type :int :payload i))
 
-(defun vm-value-make-string (s)
-  (make-vm-value :type :string :payload s))
+(defun %vm-value-intern-string (s string-table)
+  (or (gethash s string-table)
+      (setf (gethash s string-table) s)))
 
-(defun vm-value-make-literal (x)
+(defun vm-value-make-string (s string-table)
+  (make-vm-value :type :string :payload (%vm-value-intern-string s string-table)))
+
+(defun vm-value-make-literal (x &key string-table)
   (cond
     ((integerp x) (vm-value-make-int x))
-    ((stringp x) (vm-value-make-string x))
+    ((stringp x) (progn
+                   (vm-assert string-table
+                              "string-table must be provided for string literals")
+                   (vm-value-make-string x string-table)))
     ((eq x 'true) +vm-value-true+)
     ((eq x 'false) +vm-value-false+)
     (t (error "unsupported literal: ~A" x))))
@@ -81,6 +88,14 @@
 
 (Defun vm-value-eq (a b)
   (with-same-type+payload a b
+    (if (case t1
+          (:int (= p1 p2))
+          ;; this works because all strings are interned
+          ;; and true and false are constants
+          ((:string :bool) (eq p1 p2)))
+        +vm-value-true+
+        +vm-value-false+)
+
     (if (equal p1 p2) +vm-value-true+ +vm-value-false+)))
 
 (defun vm-value-gt (a b)
@@ -95,8 +110,8 @@
 (defun vm-value-lt (a b)
   (with-same-type+payload a b
     (if (case t1
-          (:int (> p1 p2))
-          (:string (string> p1 p2))
-          (:bool (and (eq p1 t) (eq p2 nil))))
+          (:int (< p1 p2))
+          (:string (string< p1 p2))
+          (:bool (and (eq p1 nil) (eq p2 t))))
         +vm-value-true+
         +vm-value-false+)))
