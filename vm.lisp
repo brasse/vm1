@@ -75,12 +75,16 @@
   (let* ((instruction (aref (vm-state-program vm) (vm-state-pc vm)))
          (return-address (1+ (vm-state-pc vm)))
          (frame-stack (vm-state-frame-stack vm))
+         (string-table (vm-state-string-table vm))
          (head (car instruction))
          (*instruction* instruction))
     (declare (special *instruction*))
     (case head
       (const (args-2 dst literal
-               (frame-set-reg (car frame-stack) dst (vm-value-make-literal literal))
+               (frame-set-reg
+                (car frame-stack)
+                dst
+                (vm-value-make-literal literal :string-table string-table))
                '(:continue)))
       (mov (args-2 dst a
              (frame-set-reg (car frame-stack) dst (resolve-value (car frame-stack) a))
@@ -215,7 +219,8 @@
 (defun fancy-run-program (&key program trace)
   (let ((vm (make-vm-state :program (assemble program)
                            :pc 0
-                           :frame-stack (list (make-frame)))))
+                           :frame-stack (list (make-frame))
+                           :string-table (make-hash-table))))
     (run-program
      vm
      :trace trace
