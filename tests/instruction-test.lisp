@@ -60,5 +60,4 @@
 
 (test add-fails-on-not-int
   (let ((vm (setup #((add foo 100 "foo")))))
-    (let ((trap-info (run-program vm)))
-      (is (eq :type-error (car trap-info))))))
+    (signals vm-type-error (run-program) vm)))
