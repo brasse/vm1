@@ -11,10 +11,10 @@
   (declare (special *instruction*))
   *instruction*)
 
-(defun resolve-value (frame x)
+(defun resolve-value (frame x string-table)
   (if (symbolp x)
       (frame-get-reg frame x)
-      (vm-value-make-literal x)))
+      (vm-value-make-literal x :string-table string-table)))
 
 (defun jmp (target)
   (cond
@@ -71,129 +71,89 @@
   `(let ((,arg1 (cadr instruction)) (,arg2 (caddr instruction)) (,arg3 (cadddr instruction)))
      ,@body))
 
+(defmacro def-binop (fn)
+  `(let ((dst (cadr instruction)) (a (caddr instruction)) (b (cadddr instruction)))
+     (funcall set-reg dst (,fn (funcall resolve a) (funcall resolve b)))
+     '(:continue)))
+
 (defun execute (vm)
   (let* ((instruction (aref (vm-state-program vm) (vm-state-pc vm)))
          (return-address (1+ (vm-state-pc vm)))
          (frame-stack (vm-state-frame-stack vm))
          (string-table (vm-state-string-table vm))
          (head (car instruction))
+         (resolve (lambda (x) (resolve-value (car frame-stack) x string-table)))
+         (set-reg (lambda (dst value) (frame-set-reg (car frame-stack) dst value)))
          (*instruction* instruction))
     (declare (special *instruction*))
     (case head
       (const (args-2 dst literal
-               (frame-set-reg
-                (car frame-stack)
-                dst
-                (vm-value-make-literal literal :string-table string-table))
+               (funcall set-reg
+                        dst
+                        (vm-value-make-literal literal :string-table string-table))
                '(:continue)))
       (mov (args-2 dst a
-             (frame-set-reg (car frame-stack) dst (resolve-value (car frame-stack) a))
+             (funcall set-reg dst (funcall resolve a))
              '(:continue)))
-      (add (args-3 dst a b
-             (frame-set-reg
-              (car frame-stack)
-              dst
-              (vm-value-add
-               (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
-             '(:continue)))
-      (sub (args-3 dst a b
-             (frame-set-reg
-              (car frame-stack)
-              dst
-              (vm-value-sub
-               (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
-             '(:continue)))
-      (mul (args-3 dst a b
-             (frame-set-reg
-              (car frame-stack)
-              dst
-              (vm-value-mul
-               (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
-             '(:continue)))
-      (div (args-3 dst a b
-             (frame-set-reg
-              (car frame-stack)
-              dst
-              (vm-value-div
-               (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
-             '(:continue)))
-      (mod (args-3 dst a b
-             (frame-set-reg
-              (car frame-stack)
-              dst
-              (vm-value-mod
-               (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
-             '(:continue)))
+
+      (add (def-binop vm-value-add))
+      (sub (def-binop vm-value-sub))
+      (mul (def-binop vm-value-mul))
+      (div (def-binop vm-value-div))
+      (mod (def-binop vm-value-mod))
       (not (args-2 dst a
-             (frame-set-reg
-              (car frame-stack)
-              dst
-              (vm-value-not (resolve-value (car frame-stack) a)))
+             (funcall set-reg
+                      dst
+                      (vm-value-not (funcall resolve a)))
              '(:continue)))
-      (eq (args-3 dst a b
-            (frame-set-reg
-             (car frame-stack)
-             dst
-             (vm-value-eq
-              (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
-            '(:continue)))
-      (gt (args-3 dst a b
-            (frame-set-reg
-             (car frame-stack)
-             dst
-             (vm-value-gt
-              (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
-            '(:continue)))
-      (lt (args-3 dst a b
-            (frame-set-reg
-             (car frame-stack)
-             dst
-             (vm-value-lt
-              (resolve-value (car frame-stack) a) (resolve-value (car frame-stack) b)))
-            '(:continue)))
+
+      (eq (def-binop vm-value-eq))
+      (gt (def-binop vm-value-gt))
+      (lt (def-binop vm-value-lt))
+
       (jmp (args-1 target (jmp target)))
-      (jz (args-2 target condition (jz (resolve-value (car frame-stack) condition) target)))
-      (jnz (args-2 target condition (jnz (resolve-value (car frame-stack) condition) target)))
-      (print (args-1 a
-               (format t "~A~%" (vm-value-str (resolve-value (car frame-stack) a)))
-               '(:continue)))
+      (jz (args-2 target condition (jz (funcall resolve condition) target)))
+      (jnz (args-2 target condition (jnz (funcall resolve condition) target)))
+
       (call (destructuring-bind (target . args) (cdr instruction)
               (let ((resolved-values
-                      (loop for arg in args collect (resolve-value (car frame-stack) arg))))
+                      (loop for arg in args collect (funcall resolve arg))))
                 (multiple-value-bind (control-directive new-frame-stack)
                     (normal-call frame-stack target resolved-values return-address)
                   (setf (vm-state-frame-stack vm) new-frame-stack)
                   control-directive))))
       (tail-call (destructuring-bind (target . args) (cdr instruction)
                    (let ((resolved-values
-                           (loop for arg in args collect (resolve-value (car frame-stack) arg))))
+                           (loop for arg in args collect (funcall resolve arg))))
                      (tail-call frame-stack target resolved-values))))
       (ret (let ((resolved-returns
-                   (loop for ret in (cdr instruction) collect (resolve-value (car frame-stack) ret))))
+                   (loop for ret in (cdr instruction) collect (funcall resolve ret))))
              (multiple-value-bind (control-directive new-frame-stack)
                  (ret frame-stack (frame-return-address (car frame-stack)) resolved-returns)
                (setf (vm-state-frame-stack vm) new-frame-stack)
                control-directive)))
       (get-arg (args-2 dst n
-                 (frame-set-reg
-                  (car frame-stack)
-                  dst
-                  (frame-get-arg (car frame-stack) n))
+                 (funcall set-reg
+                          dst
+                          (frame-get-arg (car frame-stack) n))
                  '(:continue)))
       (get-ret (args-2 dst n
-                 (frame-set-reg
-                  (car frame-stack)
-                  dst
-                  (nth n (frame-return-values (car frame-stack))))
+                 (funcall set-reg
+                          dst
+                          (nth n (frame-return-values (car frame-stack))))
                  '(:continue)))
       (get-ret-count (args-1 dst
-                       (frame-set-reg
-                        (car frame-stack)
-                        dst
-                        (vm-value-make-int (length (frame-return-values (car frame-stack)))))
+                       (funcall set-reg
+                                dst
+                                (vm-value-make-int (length (frame-return-values (car frame-stack)))))
                        '(:continue)))
       (scope-enter (frame-push-scope (car frame-stack)) '(:continue))
       (scope-exit (frame-pop-scope (car frame-stack)) '(:continue))
+
+      (print (args-1 a
+               (format t "~A~%" (vm-value-str (funcall resolve a)))
+               '(:continue)))
+
       (halt '(:done))
       (t (error 'vm-error
                 :message "unknown instruction" :instruction instruction)))))
