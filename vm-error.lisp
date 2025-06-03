@@ -42,3 +42,23 @@
   `(unless ,condition
      (error 'vm-internal-error :message
             (format nil "~A (failed condition: ~S)" ,message ',condition))))
+
+(define-condition compiler-error (error)
+  ((message :initarg :message :reader compiler-error-message)
+   (node :initarg :node :reader compiler-error-node))
+  (:report
+   (lambda (c s)
+     (format s "~A~%node: ~A"
+             (compiler-error-message c)
+             (compiler-error-node c)))))
+
+(define-condition compiler-type-error (compiler-error)
+  ((expected :initarg :expected :reader compiler-type-error-expected)
+   (actual :initarg :actual :reader compiler-type-error-actual))
+  (:report
+   (lambda (c s)
+     (format s "~A~%node: ~A~%expected: ~A~%actual: ~A"
+             (compiler-error-message c)
+             (compiler-error-node c)
+             (compiler-type-error-expected c)
+             (compiler-type-error-actual c)))))

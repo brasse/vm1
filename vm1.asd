@@ -10,6 +10,7 @@
                (:file "frame")
                (:file "vm")
                (:file "assembler")
+               (:file "compiler")
                (:file "examples/examples-asm")
                (:file "tests/frame-test")
                (:file "tests/instruction-test")
