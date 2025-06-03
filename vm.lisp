@@ -12,9 +12,11 @@
   *instruction*)
 
 (defun resolve-value (frame x string-table)
-  (if (symbolp x)
-      (frame-get-reg frame x)
-      (vm-value-make-literal x :string-table string-table)))
+  (if (or (member x '(true false none))
+          (integerp x)
+          (stringp x))
+      (vm-value-make-literal x :string-table string-table)
+      (frame-get-reg frame x)))
 
 (defun jmp (target)
   (cond
