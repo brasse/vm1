@@ -10,6 +10,9 @@
 (defparameter +vm-value-true+
   (make-vm-value :type :bool :payload t))
 
+(defparameter +vm-value-none+
+  (make-vm-value :type :none :payload nil))
+
 (defun vm-value-make-int (i)
   (make-vm-value :type :int :payload i))
 
@@ -25,10 +28,11 @@
     ((integerp x) (vm-value-make-int x))
     ((stringp x) (progn
                    (vm-assert string-table
-                              "string-table must be provided for string literals")
+                       "string-table must be provided for string literals")
                    (vm-value-make-string x string-table)))
     ((eq x 'true) +vm-value-true+)
     ((eq x 'false) +vm-value-false+)
+    ((eq x 'none) +vm-value-none+)
     (t (error "unsupported literal: ~A" x))))
 
 (defun vm-value-falsep (x)
@@ -36,7 +40,8 @@
     (case (vm-value-type x)
       (:int (= payload 0))
       (:string (string= payload ""))
-      (:bool (not payload)))))
+      (:bool (not payload))
+      (:none t))))
 
 (defun vm-value-str (x)
   (let ((type (vm-value-type x))
@@ -45,10 +50,12 @@
             (case type
               (:int "i")
               (:string "s")
-              (:bool "b"))
+              (:bool "b")
+              (:none "n"))
             (case type
               ((:int :string) payload)
-              (:bool (if payload "true" "false"))))))
+              (:bool (if payload "true" "false"))
+              (:none "none")))))
 
 (defun vm-value-not (a)
   (if (vm-value-falsep a) +vm-value-true+ +vm-value-false+))
@@ -92,18 +99,18 @@
           (:int (= p1 p2))
           ;; this works because all strings are interned
           ;; and true and false are constants
-          ((:string :bool) (eq p1 p2)))
+          ((:string :bool) (eq p1 p2))
+          (:none t))
         +vm-value-true+
-        +vm-value-false+)
-
-    (if (equal p1 p2) +vm-value-true+ +vm-value-false+)))
+        +vm-value-false+)))
 
 (defun vm-value-gt (a b)
   (with-same-type+payload a b
     (if (case t1
           (:int (> p1 p2))
           (:string (string> p1 p2))
-          (:bool (and (eq p1 t) (eq p2 nil))))
+          (:bool (and (eq p1 t) (eq p2 nil)))
+          (:none nil))
         +vm-value-true+
         +vm-value-false+)))
 
@@ -112,6 +119,7 @@
     (if (case t1
           (:int (< p1 p2))
           (:string (string< p1 p2))
-          (:bool (and (eq p1 nil) (eq p2 t))))
+          (:bool (and (eq p1 nil) (eq p2 t)))
+          (:none nil))
         +vm-value-true+
         +vm-value-false+)))

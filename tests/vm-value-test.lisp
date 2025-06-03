@@ -33,12 +33,19 @@
         (b (vm-value-make-literal "foo" :string-table (make-hash-table))))
     (is (eq (vm-value-payload a) (vm-value-payload b)))))
 
+(test make-none-literal
+  (let ((a (vm-value-make-literal 'none)))
+    (is (eq :none (vm-value-type a)))
+    (is (null (vm-value-payload a)))))
+
 (test not-does-its-thing
   (let ((a (vm-value-not (vm-value-make-literal 0))))
     (is (eq +vm-value-true+ a)))
   (let ((a (vm-value-not (vm-value-make-literal "" :string-table (make-hash-table)))))
     (is (eq +vm-value-true+ a)))
   (let ((a (vm-value-not +vm-value-false+)))
+    (is (eq +vm-value-true+ a)))
+  (let ((a (vm-value-not +vm-value-none+)))
     (is (eq +vm-value-true+ a)))
 
   (let ((a (vm-value-not (vm-value-make-literal 42))))
@@ -61,7 +68,7 @@
   (signals vm-type-error
     (vm-value-add
      (vm-value-make-literal 100)
-     (vm-value-make-literal "foo" (make-hash-table)))))
+     (vm-value-make-literal "foo" :string-table (make-hash-table)))))
 
 (test sub-ints
   (let ((a (vm-value-sub (vm-value-make-literal 100) (vm-value-make-literal 23))))
@@ -144,3 +151,8 @@
 (test gt-needs-same-type
   (signals vm-type-error
     (vm-value-gt (vm-value-make-literal 10) (vm-value-make-literal 'false))))
+
+(test none-comparison
+  (is (eq +vm-value-true+ (vm-value-eq +vm-value-none+ +vm-value-none+)))
+  (is (eq +vm-value-false+ (vm-value-lt +vm-value-none+ +vm-value-none+)))
+  (is (eq +vm-value-false+ (vm-value-gt +vm-value-none+ +vm-value-none+))))
