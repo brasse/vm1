@@ -38,7 +38,7 @@
 (defun %scope-str (scope)
   (format nil "[~{~A~^ ~}]"
           (loop for k being the hash-keys of scope using (hash-value v)
-                collect (format nil "~A:~A" k (vm-value-str v)))))
+                collect (format nil "~A:~A" k (%vm-value-str v)))))
 
 (defun frame-str (frame)
   (format nil "~{~A~%~}args: ~A~%return-address: ~A~%return-values: ~A~%"
@@ -50,13 +50,13 @@
                   (loop
                     for i from 0
                     for arg in (frame-args frame)
-                    collect (format nil "~A:~A" i (vm-value-str arg))))
+                    collect (format nil "~A:~A" i (%vm-value-str arg))))
           (frame-return-address frame)
           (format nil "[~{~A~^ ~}]"
                   (loop
                     for i from 0
                     for arg in (frame-return-values frame)
-                    collect (format nil "~A:~A" i (vm-value-str arg))))))
+                    collect (format nil "~A:~A" i (%vm-value-str arg))))))
 
 
 (defun frame-stack-push-frame (frame-stack args return-address)

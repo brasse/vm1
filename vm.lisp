@@ -73,6 +73,13 @@
   `(let ((,arg1 (cadr instruction)) (,arg2 (caddr instruction)) (,arg3 (cadddr instruction)))
      ,@body))
 
+(defmacro args-4 (arg1 arg2 arg3 arg4 &body body)
+  `(let ((,arg1 (nth 1 instruction))
+         (,arg2 (nth 2 instruction))
+         (,arg3 (nth 3 instruction))
+         (,arg4 (nth 4 instruction)))
+     ,@body))
+
 (defmacro def-binop (fn)
   `(let ((dst (cadr instruction)) (a (caddr instruction)) (b (cadddr instruction)))
      (funcall set-reg dst (,fn (funcall resolve a) (funcall resolve b)))
@@ -151,6 +158,17 @@
                        '(:continue)))
       (scope-enter (frame-push-scope (car frame-stack)) '(:continue))
       (scope-exit (frame-pop-scope (car frame-stack)) '(:continue))
+
+      (concat (def-binop vm-value-concat))
+      (substr (args-4 dst s start end
+                (funcall set-reg
+                         dst
+                         (vm-value-substr
+                          (funcall resolve s)
+                          (funcall resolve start)
+                          (funcall resolve end)
+                          string-table))
+                '(:continue)))
 
       (print (args-1 a
                (format t "~A~%" (vm-value-str (funcall resolve a)))

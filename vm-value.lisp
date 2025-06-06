@@ -46,6 +46,15 @@
 (defun vm-value-str (x)
   (let ((type (vm-value-type x))
         (payload (vm-value-payload x)))
+    (format nil "~A"
+            (case type
+              ((:int :string) payload)
+              (:bool (if payload "true" "false"))
+              (:none "none")))))
+
+(defun %vm-value-str (x)
+  (let ((type (vm-value-type x))
+        (payload (vm-value-payload x)))
     (format nil "~A:~A"
             (case type
               (:int "i")
@@ -60,26 +69,44 @@
 (defun vm-value-not (a)
   (if (vm-value-falsep a) +vm-value-true+ +vm-value-false+))
 
-(defmacro def-int-binary-op (name op)
+(defmacro def-binary-op (name type op)
   `(defun ,name (v1 v2)
      (let ((t1 (vm-value-type v1)) (t2 (vm-value-type v2))
            (v1 (vm-value-payload v1)) (v2 (vm-value-payload v2)))
-       (unless (and (eq t1 :int) (eq t2 :int))
+       (unless (and (eq t1 ,type) (eq t2 ,type))
          (error 'vm-type-error :instruction (current-instruction)
-                               :expected :int  :actual (list t1 t2)))
-       (vm-value-make-int (funcall ,op v1 v2)))))
+                               :expected ,type  :actual (list t1 t2)))
+       (make-vm-value :type ,type :payload (funcall ,op v1 v2)))))
 
-(def-int-binary-op vm-value-add (lambda (a b) (+ a b)))
-(def-int-binary-op vm-value-sub (lambda (a b) (- a b)))
-(def-int-binary-op vm-value-mul (lambda (a b) (* a b)))
-(def-int-binary-op vm-value-div
-    (lambda (a b) (if (zerop b)
-                      (error 'vm-divide-by-zero :instruction (current-instruction))
-                      (truncate a b))))
-(def-int-binary-op vm-value-mod
-    (lambda (a b) (if (zerop b)
-                      (error 'vm-divide-by-zero :instruction (current-instruction))
-                      (nth-value 1 (truncate a b)))))
+(def-binary-op vm-value-add :int #'+)
+(def-binary-op vm-value-sub :int #'-)
+(def-binary-op vm-value-mul :int #'*)
+(def-binary-op vm-value-div :int
+  (lambda (a b) (if (zerop b)
+                    (error 'vm-divide-by-zero :instruction (current-instruction))
+                    (truncate a b))))
+(def-binary-op vm-value-mod :int
+  (lambda (a b) (if (zerop b)
+                    (error 'vm-divide-by-zero :instruction (current-instruction))
+                    (nth-value 1 (truncate a b)))))
+
+
+(def-binary-op vm-value-concat :string (lambda (a b) (concatenate 'string a b)))
+
+(defun vm-value-substr (s start end string-table)
+  (let ((s-type (vm-value-type s))
+        (start-type (vm-value-type start))
+        (end-type (when end (vm-value-type end)))
+        (s (vm-value-payload s))
+        (start (vm-value-payload start))
+        (end (when end (vm-value-payload end))))
+    (unless (and (eq s-type :string)
+                 (eq start-type :int)
+                 (or (null end) (eq end-type :int)))
+      (error 'vm-type-error :instruction (current-instruction)
+                            :expected (list :string :int :int)
+                            :actual (list s-type start-type end-type)))
+    (vm-value-make-string (subseq s start end) string-table)))
 
 (defmacro with-same-type+payload (v1 v2 &body body)
   `(let ((t1 (vm-value-type ,v1))
