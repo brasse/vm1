@@ -80,9 +80,11 @@
          (,arg4 (nth 4 instruction)))
      ,@body))
 
-(defmacro def-binop (fn)
+(defmacro def-vm-binop (fn &key use-string-table)
   `(let ((dst (cadr instruction)) (a (caddr instruction)) (b (cadddr instruction)))
-     (funcall set-reg dst (,fn (funcall resolve a) (funcall resolve b)))
+     (if ,use-string-table
+         (funcall set-reg dst (,fn (funcall resolve a) (funcall resolve b) :string-table string-table))
+         (funcall set-reg dst (,fn (funcall resolve a) (funcall resolve b))))
      '(:continue)))
 
 (defun execute (vm)
@@ -105,20 +107,20 @@
              (funcall set-reg dst (funcall resolve a))
              '(:continue)))
 
-      (add (def-binop vm-value-add))
-      (sub (def-binop vm-value-sub))
-      (mul (def-binop vm-value-mul))
-      (div (def-binop vm-value-div))
-      (mod (def-binop vm-value-mod))
+      (add (def-vm-binop vm-value-add))
+      (sub (def-vm-binop vm-value-sub))
+      (mul (def-vm-binop vm-value-mul))
+      (div (def-vm-binop vm-value-div))
+      (mod (def-vm-binop vm-value-mod))
       (not (args-2 dst a
              (funcall set-reg
                       dst
                       (vm-value-not (funcall resolve a)))
              '(:continue)))
 
-      (eq (def-binop vm-value-eq))
-      (gt (def-binop vm-value-gt))
-      (lt (def-binop vm-value-lt))
+      (eq (def-vm-binop vm-value-eq))
+      (gt (def-vm-binop vm-value-gt))
+      (lt (def-vm-binop vm-value-lt))
 
       (jmp (args-1 target (jmp target)))
       (jz (args-2 target condition (jz (funcall resolve condition) target)))
@@ -159,15 +161,29 @@
       (scope-enter (frame-push-scope (car frame-stack)) '(:continue))
       (scope-exit (frame-pop-scope (car frame-stack)) '(:continue))
 
-      (concat (def-binop vm-value-concat))
-      (substr (args-4 dst s start end
+      (concat (def-vm-binop vm-value-concat :use-string-table t))
+      (substr-start-end (args-4 dst s start end
+                          (funcall set-reg
+                                   dst
+                                   (vm-value-substr
+                                    (funcall resolve s)
+                                    (funcall resolve start)
+                                    (funcall resolve end)
+                                    string-table))
+                          '(:continue)))
+      (substr-start (args-3 dst s start
+                      (funcall set-reg
+                               dst
+                               (vm-value-substr
+                                (funcall resolve s)
+                                (funcall resolve start)
+                                +vm-value-none+
+                                string-table))
+                      '(:continue)))
+      (strlen (args-2 dst s
                 (funcall set-reg
                          dst
-                         (vm-value-substr
-                          (funcall resolve s)
-                          (funcall resolve start)
-                          (funcall resolve end)
-                          string-table))
+                         (vm-value-strlen (funcall resolve s)))
                 '(:continue)))
 
       (print (args-1 a

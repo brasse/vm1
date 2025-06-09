@@ -69,44 +69,62 @@
 (defun vm-value-not (a)
   (if (vm-value-falsep a) +vm-value-true+ +vm-value-false+))
 
-(defmacro def-binary-op (name type op)
-  `(defun ,name (v1 v2)
-     (let ((t1 (vm-value-type v1)) (t2 (vm-value-type v2))
-           (v1 (vm-value-payload v1)) (v2 (vm-value-payload v2)))
-       (unless (and (eq t1 ,type) (eq t2 ,type))
-         (error 'vm-type-error :instruction (current-instruction)
-                               :expected ,type  :actual (list t1 t2)))
-       (make-vm-value :type ,type :payload (funcall ,op v1 v2)))))
+(defmacro def-vm-value-op (name expected-types result-type fn)
+  ;; name of function
+  ;; list of expected-types for arguments of function
+  ;; the result-type of the function
+  ;; fn is the function taking same number of arguments as types in expected-types
+  ;; fn will grow a key argument, string-table, if the result type is :string
+  (let* ((arg-names (loop for i from 1 to (length expected-types)
+                          collect (make-symbol (format nil "a~A" i))))
+         (full-args (if (eq :string result-type)
+                        (append arg-names '(&key string-table))
+                        arg-names)))
+    `(defun ,name ,full-args
+       (let ((actual-types (mapcar #'vm-value-type (list ,@arg-names))))
+         (unless (equal actual-types  ',expected-types)
+           (error 'vm-type-error :instruction (current-instruction)
+                                 :expected ',expected-types  :actual actual-types))
+         (let ((result (apply ,fn (mapcar #'vm-value-payload (list ,@arg-names)))))
+           (if (eq :string ,result-type)
+               (if string-table
+                   (vm-value-make-string result string-table)
+                   (error 'vm-internal-error :message (format nil "~A requires a string table" ',name)))
+               (make-vm-value :type ,result-type
+                              :payload result)))))))
 
-(def-binary-op vm-value-add :int #'+)
-(def-binary-op vm-value-sub :int #'-)
-(def-binary-op vm-value-mul :int #'*)
-(def-binary-op vm-value-div :int
+(def-vm-value-op vm-value-add (:int :int) :int #'+)
+(def-vm-value-op vm-value-sub (:int :int) :int #'-)
+(def-vm-value-op vm-value-mul (:int :int) :int #'*)
+(def-vm-value-op vm-value-div (:int :int) :int
   (lambda (a b) (if (zerop b)
                     (error 'vm-divide-by-zero :instruction (current-instruction))
                     (truncate a b))))
-(def-binary-op vm-value-mod :int
+(def-vm-value-op vm-value-mod (:int :int) :int
   (lambda (a b) (if (zerop b)
                     (error 'vm-divide-by-zero :instruction (current-instruction))
                     (nth-value 1 (truncate a b)))))
 
 
-(def-binary-op vm-value-concat :string (lambda (a b) (concatenate 'string a b)))
+(def-vm-value-op vm-value-concat (:string :string) :string
+  (lambda (a b) (concatenate 'string a b)))
+
+(def-vm-value-op vm-value-strlen (:string) :int #'length)
 
 (defun vm-value-substr (s start end string-table)
   (let ((s-type (vm-value-type s))
         (start-type (vm-value-type start))
-        (end-type (when end (vm-value-type end)))
-        (s (vm-value-payload s))
+        (end-type (vm-value-type end))
+        (str (vm-value-payload s))
         (start (vm-value-payload start))
-        (end (when end (vm-value-payload end))))
+        (end (vm-value-payload end))) ;; if :none this payload will be nil
     (unless (and (eq s-type :string)
                  (eq start-type :int)
-                 (or (null end) (eq end-type :int)))
+                 (or (eq end-type :none) (eq end-type :int)))
       (error 'vm-type-error :instruction (current-instruction)
                             :expected (list :string :int :int)
                             :actual (list s-type start-type end-type)))
-    (vm-value-make-string (subseq s start end) string-table)))
+    (vm-value-make-string (subseq str start end) string-table)))
 
 (defmacro with-same-type+payload (v1 v2 &body body)
   `(let ((t1 (vm-value-type ,v1))

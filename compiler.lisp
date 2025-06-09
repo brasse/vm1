@@ -25,29 +25,32 @@
           :code (append a-code
                         (list (list 'print a-operand))))))
 
-(defmacro deflang-op (op-name instruction expected-types result-type)
+(defmacro def-lang-op (op-name instruction expected-types result-type)
   ;; op-name is e.g. 'substr
   ;; instruction is e.g. 'substr
   ;; expected-types is a list like (:string :int :int) or :any or :same-type
   ;; result-type is e.g. :string
   `((and (consp node) (eq ,op-name (car node)))
     (let ((args (cdr node)))
-      (unless (= (length args) (length ,expected-types))
+      (unless (or (member ,expected-types '(:any :same-type))
+                  (= (length args) (length ,expected-types)))
         (error 'compiler-error
-               :message (format nil "wrong number of arguments to ~A: ~A" ',op-name args)
-               :initarg node))
+               :message (format nil "wrong number of arguments to ~A, exptected ~A: ~A"
+                                ',op-name (length ,expected-types) args)
+               :node node))
       (let ((compiled-args (mapcar (lambda (arg) (compile-node arg ctx)) args)))
 
         ;; Type check
         (let ((actual-types (mapcar (lambda (c) (getf c :type)) compiled-args)))
-          (unless (or (equal '(:any) ,expected-types)
-                      (and (equal '(:same-type) ,expected-types)
-                           (= 1 (length (remove-duplicates ,expected-types))))
+          (unless (or (equal :any ,expected-types)
+                      (and (equal :same-type ,expected-types)
+                           (= 1 (length (remove-duplicates actual-types))))
                       (equal ,expected-types actual-types))
-            (error 'compiler-type-error :message (format nil "type mismatch for ~A" ,op-name)
-                                        :node node
-                                        :expected ,expected-types
-                                        :actual actual-types))
+            (progn
+              (error 'compiler-type-error :message (format nil "type mismatch for ~A" ,op-name)
+                                          :node node
+                                          :expected ,expected-types
+                                          :actual actual-types)))
           ;; Generate code
           (let ((tmp (fresh-tmp ctx))
                 (code (apply #'append (mapcar (lambda (c) (getf c :code)) compiled-args)))
@@ -56,38 +59,34 @@
                   :type ,result-type
                   :code (append code (list (cons ,instruction (cons tmp operands)))))))))))
 
-(defmacro deflang-unop (op instruction expected-type result-type)
-  `(deflang-op ,op ,instruction (list ,expected-type) ,result-type))
-
-(defmacro deflang-binop (op instruction expected-type result-type)
-  `(deflang-op ,op ,instruction (list ,expected-type ,expected-type) ,result-type))
-
-(defmacro deflang-compile-node (&rest rules)
+(defmacro def-lang-compile-node (&rest rules)
   `(defun compile-node (node ctx)
      (cond
        ,@(loop for rule in rules
                collect (macroexpand rule))
        (t (error 'compiler-error :message "unknown node" :node node)))))
 
-(deflang-compile-node
+(def-lang-compile-node
     ((integerp node) `(:literal ,node :type :int))
     ((stringp node) `(:literal ,node :type :string))
   ((and (symbolp node) (or (eq 'false node) (eq 'true node)))
    `(:literal ,node :type :bool))
 
-  (deflang-binop '+ 'add :int :int)
-  (deflang-binop '- 'sub :int :int)
-  (deflang-binop '* 'mul :int :int)
-  (deflang-binop '/ 'div :int :int)
-  (deflang-binop '% 'mod :int :int)
-  (deflang-unop 'not 'not :any :bool)
+  (def-lang-op '+ 'add '(:int :int) :int)
+  (def-lang-op '- 'sub '(:int :int) :int)
+  (def-lang-op '* 'mul '(:int :int) :int)
+  (def-lang-op '/ 'div '(:int :int) :int)
+  (def-lang-op '% 'mod '(:int :int) :int)
+  (def-lang-op 'not 'not :any :bool)
 
-  (deflang-binop 'concat 'concat :string :string)
-  (deflang-op 'substr 'substr '(:string :int :int) :string)
+  (def-lang-op 'concat 'concat '(:string :string) :string)
+  (def-lang-op 'substr-start-end 'substr-start-end '(:string :int :int) :string)
+  (def-lang-op 'substr-start 'substr-start '(:string :int) :string)
+  (def-lang-op 'strlen 'strlen '(:string) :int)
 
-  (deflang-binop '= 'eq :same-type :bool)
-  (deflang-binop '< 'lt :same-type :bool)
-  (deflang-binop '> 'gt :same-type :bool)
+  (def-lang-op '= 'eq :same-type :bool)
+  (def-lang-op '< 'lt :same-type :bool)
+  (def-lang-op '> 'gt :same-type :bool)
 
   ((and (consp node) (eq 'print (car node)))
    (%print node ctx)))
