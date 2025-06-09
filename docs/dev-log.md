@@ -64,3 +64,26 @@
 - The resolve-value function now needs a string-table to be able to
   create string literals. Fix this by defining a closure over
   string-table that has the same signature as resolve-value today.
+
+## 2025-06-09
+
+Lots of refactoring and bug fixes. Lots of thinking and changing of
+macros. From the commit message:
+
+- No vm-value-* functions are taking optional arguments
+- vm-value-substr can take an :int or :none as the end argument
+- No VM instructions take optional arguments
+- VM instructions substr-start and substr-start-end takes 2 or 3
+  arguments
+- The Heep standard library should define substr that takes an
+  optional argument
+
+### Next
+
+- Should the def-lang-op macro support optional arguments. So far I
+  don't think so. To keep me sane and for that macro to stay readable
+  it might be a bad idea to have it support optional arguments. Optional
+  arguments might have to be a Heep concept only.
+- But! Making the compiler operands behave like proper funtctions when
+  it comes to multiple return value will be a good thing and I probably need
+  to make the compiler keep track of that.
