@@ -29,8 +29,9 @@
   (signals vm-internal-error (vm-value-make-literal "foo")))
 
 (test string-are-interned
-  (let ((a (vm-value-make-literal "foo" :string-table (make-hash-table)))
-        (b (vm-value-make-literal "foo" :string-table (make-hash-table))))
+  (let* ((string-table (make-hash-table))
+         (a (vm-value-make-literal "foo" :string-table string-table))
+         (b (vm-value-make-literal "foo" :string-table string-table)))
     (is (eq (vm-value-payload a) (vm-value-payload b)))))
 
 (test make-none-literal
@@ -156,3 +157,37 @@
   (is (eq +vm-value-true+ (vm-value-eq +vm-value-none+ +vm-value-none+)))
   (is (eq +vm-value-false+ (vm-value-lt +vm-value-none+ +vm-value-none+)))
   (is (eq +vm-value-false+ (vm-value-gt +vm-value-none+ +vm-value-none+))))
+
+(test concat-strings
+  (let* ((string-table (make-hash-table))
+         (a (vm-value-make-literal "foo" :string-table string-table))
+         (b (vm-value-make-literal "bar" :string-table string-table))
+         (ab (vm-value-concat a b :string-table string-table)))
+    (is (string= "foobar" (vm-value-payload ab)))))
+
+(test concat-just-strings
+  (let* ((string-table (make-hash-table))
+         (a (vm-value-make-literal "foo" :string-table string-table))
+         (b (vm-value-make-literal 10)))
+    (signals vm-type-error (ab (vm-value-concat a b :string-table string-table)))))
+
+(test substr-strings
+  (let* ((string-table (make-hash-table))
+         (a (vm-value-make-literal "foobar" :string-table string-table))
+         (foo (vm-value-substr a
+                               (vm-value-make-literal 0)
+                               (vm-value-make-literal 3)
+                               :string-table string-table))
+         (bar (vm-value-substr a
+                               (vm-value-make-literal 3)
+                               +vm-value-none+
+                               :string-table string-table)))
+    (is (string= "foo" (vm-value-payload foo)))
+    (is (string= "bar" (vm-value-payload bar)))))
+
+(test strlen-strings
+  (let* ((string-table (make-hash-table))
+         (empty-string (vm-value-make-literal "" :string-table string-table))
+         (a (vm-value-make-literal "12345" :string-table string-table)))
+    (is (= 0 (vm-value-payload (vm-value-strlen empty-string))))
+    (is (= 5 (vm-value-payload (vm-value-strlen a))))))

@@ -111,7 +111,7 @@
 
 (def-vm-value-op vm-value-strlen (:string) :int #'length)
 
-(defun vm-value-substr (s start end string-table)
+(defun vm-value-substr (s start end &key string-table)
   (let ((s-type (vm-value-type s))
         (start-type (vm-value-type start))
         (end-type (vm-value-type end))

@@ -169,7 +169,7 @@
                                     (funcall resolve s)
                                     (funcall resolve start)
                                     (funcall resolve end)
-                                    string-table))
+                                    :string-table string-table))
                           '(:continue)))
       (substr-start (args-3 dst s start
                       (funcall set-reg
@@ -178,7 +178,7 @@
                                 (funcall resolve s)
                                 (funcall resolve start)
                                 +vm-value-none+
-                                string-table))
+                                :string-table string-table))
                       '(:continue)))
       (strlen (args-2 dst s
                 (funcall set-reg
