@@ -1,5 +1,13 @@
 (in-package :vm1)
 
+(defstruct compiled-node
+  kind           ; :literal, :reg, or :retvals
+  types          ; list of declared types if available, nil otherwise
+  code           ; emitted code vector
+  reg            ; for kind = :reg
+  literal        ; for kind = :literal
+  ret-count)     ; for kind = :retvals
+
 (defstruct compiler-context
   (reg-counter 0))
 
@@ -13,17 +21,19 @@
 
 (defun same-type (a b) (eq a b))
 
+(defun primary-type (types) (car types))
+
 (defun resolve-operand (compiled)
-  (or (getf compiled :literal) (getf compiled :reg)))
+  (or (compiled-node-literal compiled)
+      (compiled-node-reg compiled)))
 
 (defun %print (node ctx)
   (let* ((compiled-a (compile-node (cadr node) ctx))
          (a-operand (resolve-operand compiled-a))
-         (a-code (getf compiled-a :code)))
-    (list :literal 'none
-          :type :none
-          :code (append a-code
-                        (list (list 'print a-operand))))))
+         (a-code (compiled-node-code compiled-a)))
+    (make-compiled-node :kind :literal
+                        :types '(:none)
+                        :code (append a-code (list (list 'print a-operand))))))
 
 (defmacro def-lang-op (op-name instruction expected-types result-type)
   ;; op-name is e.g. 'substr
@@ -41,7 +51,7 @@
       (let ((compiled-args (mapcar (lambda (arg) (compile-node arg ctx)) args)))
 
         ;; Type check
-        (let ((actual-types (mapcar (lambda (c) (getf c :type)) compiled-args)))
+        (let ((actual-types (mapcar (lambda (c) (primary-type (compiled-node-types c))) compiled-args)))
           (unless (or (equal :any ,expected-types)
                       (and (equal :same-type ,expected-types)
                            (= 1 (length (remove-duplicates actual-types))))
@@ -53,11 +63,13 @@
                                           :actual actual-types)))
           ;; Generate code
           (let ((tmp (fresh-tmp ctx))
-                (code (apply #'append (mapcar (lambda (c) (getf c :code)) compiled-args)))
+                (code (apply #'append (mapcar (lambda (c) (compiled-node-code c)) compiled-args)))
                 (operands (mapcar #'resolve-operand compiled-args)))
-            (list :reg tmp
-                  :type ,result-type
-                  :code (append code (list (cons ,instruction (cons tmp operands)))))))))))
+            (make-compiled-node
+             :kind :reg
+             :reg tmp
+             :types (list ,result-type)
+             :code (append code (list (cons ,instruction (cons tmp operands)))))))))))
 
 (defmacro def-lang-compile-node (&rest rules)
   `(defun compile-node (node ctx)
@@ -67,10 +79,10 @@
        (t (error 'compiler-error :message "unknown node" :node node)))))
 
 (def-lang-compile-node
-    ((integerp node) `(:literal ,node :type :int))
-    ((stringp node) `(:literal ,node :type :string))
+    ((integerp node) (make-compiled-node :kind :literal :types '(:int) :literal node))
+    ((stringp node) (make-compiled-node :kind :literal :types '(:string) :literal node))
   ((and (symbolp node) (or (eq 'false node) (eq 'true node)))
-   `(:literal ,node :type :bool))
+   (make-compiled-node :kind :literal :types '(:bool) :literal node))
 
   (def-lang-op '+ 'add '(:int :int) :int)
   (def-lang-op '- 'sub '(:int :int) :int)
@@ -96,5 +108,5 @@
     (coerce
      (loop for node in program
            append (let ((compiled (compile-node node ctx)))
-                    (getf compiled :code)))
+                    (compiled-node-code compiled)))
      'vector)))
