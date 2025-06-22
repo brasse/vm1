@@ -173,50 +173,32 @@
         +vm-value-true+
         +vm-value-false+)))
 
-(defun %validate-pos (arr pos)
-  (when (not (= (length pos) (array-rank arr)))
-    (error 'vm-index-out-of-bounds
-           :instruction (current-instruction)
-           :message (format nil
-                            "wrong number of subscripts, ~A, for array of rank ~A."
-                            (length pos) (array-rank arr))))
-  (loop for d from 0
-        for i in pos do
-          (if (or (< i 0) (>= i (array-dimension arr d)))
-              (error 'vm-index-out-of-bounds
-                     :instruction (current-instruction)
-                     :message (format nil
-                                      "invalid index ~A for axis ~A of array, should be 0 >= i < ~A."
-                                      i d (array-dimension arr d))))))
-
-(defun vm-value-array-set (arr pos x)
+(defun %decode-indices (arr indices)
   ;; check array type
   (let ((type (vm-value-type arr)))
     (unless (eq :array type)
       (error 'vm-type-error :instruction (current-instruction)
                             :expected :array :actual type)))
-  (unless (vm-value-p x)
-    (error 'vm-internal-error :message "can only insert vm-value into array"))
 
   (let* ((actual-array (vm-value-payload arr))
          (rank (array-rank actual-array))
-         (pos-rank (length pos))
-         (pos-types (mapcar #'vm-value-type pos)))
-    ;; check pos has same rank as array
-    (unless  (= pos-rank rank)
+         (indices-rank (length indices))
+         (indices-types (mapcar #'vm-value-type indices)))
+    ;; check indices has same rank as array
+    (unless  (= indices-rank rank)
       (error 'vm-index-out-of-bounds
              :instruction (current-instruction)
              :message (format nil
                               "wrong number of subscripts, ~A, for array of rank ~A."
-                              pos-rank rank)))
-    ;; check pos is all :int
-    (unless (every (lambda (type) (eq :int type)) pos-types)
+                              indices-rank rank)))
+    ;; check indices are all :int
+    (unless (every (lambda (type) (eq :int type)) indices-types)
       (error 'vm-type-error :instruction (current-instruction)
                             :expected (make-list rank :initial-element :int)
-                            :actual pos-types))
-    ;; check subcomponents of pos
+                            :actual indices-types))
+    ;; check subcomponents of indices
     (loop for d from 0
-          for i in (mapcar #'vm-value-payload pos) do
+          for i in (mapcar #'vm-value-payload indices) do
             (let ((dim (array-dimension actual-array d)))
               (if (or (< i 0) (>= i dim))
                   (error 'vm-index-out-of-bounds
@@ -224,15 +206,16 @@
                          :message (format nil
                                           "invalid index ~A for axis ~A of array, should be 0 >= i < ~A."
                                           i d dim)))))
-    (setf (apply #'aref (cons actual-array (mapcar #'vm-value-payload pos))) x)))
+    (values actual-array  (mapcar #'vm-value-payload indices))))
 
-(defun vm-value-array-get (arr pos)
-  (let ((type (vm-value-type arr)))
-    (unless (eq :array type)
-      (error 'vm-type-error :instruction (current-instruction)
-                            :expected :array :actual type)))
-  (let ((actual-array (vm-value-payload arr)))
-    (%validate-pos actual-array pos)
-    (apply #'aref (cons actual-array pos))))
+(defun vm-value-array-set (arr indices x)
+  (unless (vm-value-p x)
+    (error 'vm-internal-error :message "can only insert vm-value into array"))
+  (multiple-value-bind (actual-array actual-indices) (%decode-indices arr indices)
+    (setf (apply #'aref (cons actual-array actual-indices)) x)))
+
+(defun vm-value-array-get (arr indices)
+  (multiple-value-bind (actual-array actual-indices) (%decode-indices arr indices)
+    (apply #'aref (cons actual-array actual-indices))))
 
 (def-vm-value-op vm-value-array-rank (:array) :int #'array-rank)
