@@ -4,16 +4,18 @@
   ((message :initarg :message :reader vm-internal-error-message))
   (:report
    (lambda (c s)
-     (format s "internal vm error: ~A" (vm-internal-error-message c)))))
+     (format s "~A" (vm-internal-error-message c)))))
 
 (define-condition vm-error (error)
   ((instruction :initarg :instruction :reader vm-error-instruction)
    (message :initarg :message :initform nil :reader vm-error-message))
   (:report
    (lambda (c s)
-     (format s "VM error in ~S: ~A"
-             (vm-error-instruction c)
-             (vm-error-message c)))))
+     (format s "~A: ~S"
+             (vm-error-message c)
+             (vm-error-instruction c)))))
+
+(define-condition vm-index-out-of-bounds (vm-error) ())
 
 (define-condition vm-divide-by-zero (vm-error) ()
   (:report (lambda (c s)
