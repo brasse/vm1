@@ -142,7 +142,7 @@
            (p2 (vm-value-payload ,v2)))
        ,@body)))
 
-(Defun vm-value-eq (a b)
+(defun vm-value-eq (a b)
   (with-same-type+payload a b
     (if (case t1
           (:int (= p1 p2))
