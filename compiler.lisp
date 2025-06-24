@@ -19,8 +19,6 @@
 (defun fresh-tmp (ctx)
   (fresh-reg "tmp" ctx))
 
-(defun same-type (a b) (eq a b))
-
 (defun primary-type (types) (car types))
 
 (defun resolve-operand (compiled)
@@ -45,7 +43,7 @@
       (unless (or (member ,expected-types '(:any :same-type))
                   (= (length args) (length ,expected-types)))
         (error 'compiler-error
-               :message (format nil "wrong number of arguments to ~A, exptected ~A: ~A"
+               :message (format nil "wrong number of arguments to ~A, expected ~A: ~A"
                                 ',op-name (length ,expected-types) args)
                :node node))
       (let ((compiled-args (mapcar (lambda (arg) (compile-node arg ctx)) args)))
