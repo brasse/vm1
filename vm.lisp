@@ -61,140 +61,125 @@
     (setf (frame-return-values (car return-stack)) return-values)
     (values `(:return ,return-address) return-stack)))
 
-(defmacro args-1 (arg1 &body body)
-  `(let ((,arg1 (cadr instruction)))
-     ,@body))
-
-(defmacro args-2 (arg1 arg2 &body body)
-  `(let ((,arg1 (cadr instruction)) (,arg2 (caddr instruction)))
-     ,@body))
-
-(defmacro args-3 (arg1 arg2 arg3 &body body)
-  `(let ((,arg1 (cadr instruction)) (,arg2 (caddr instruction)) (,arg3 (cadddr instruction)))
-     ,@body))
-
-(defmacro args-4 (arg1 arg2 arg3 arg4 &body body)
-  `(let ((,arg1 (nth 1 instruction))
-         (,arg2 (nth 2 instruction))
-         (,arg3 (nth 3 instruction))
-         (,arg4 (nth 4 instruction)))
-     ,@body))
-
 (defun execute (vm)
   (let* ((instruction (aref (vm-state-program vm) (vm-state-pc vm)))
          (return-address (1+ (vm-state-pc vm)))
          (frame-stack (vm-state-frame-stack vm))
          (string-table (vm-state-string-table vm))
          (head (car instruction))
-         (resolve (lambda (x) (resolve-value (car frame-stack) x string-table)))
-         (set-reg (lambda (dst value) (frame-set-reg (car frame-stack) dst value)))
          (*instruction* instruction))
     (declare (special *instruction*))
-    (macrolet
-        ((emit-binop (fn &key use-string-table)
-           `(let ((dst (cadr instruction)) (a (caddr instruction)) (b (cadddr instruction)))
-              (if ,use-string-table
-                  (funcall set-reg dst (,fn (funcall resolve a)
-                                            (funcall resolve b)
-                                            :string-table string-table))
-                  (funcall set-reg dst (,fn (funcall resolve a) (funcall resolve b))))
-              '(:continue))))
-      (case head
-        (const (args-2 dst literal
-                 (funcall set-reg
-                          dst
-                          (vm-value-make-literal literal :string-table string-table))
-                 '(:continue)))
-        (mov (args-2 dst a
-               (funcall set-reg dst (funcall resolve a))
-               '(:continue)))
-
-        (add (emit-binop vm-value-add))
-        (sub (emit-binop vm-value-sub))
-        (mul (emit-binop vm-value-mul))
-        (div (emit-binop vm-value-div))
-        (mod (emit-binop vm-value-mod))
-        (not (args-2 dst a
-               (funcall set-reg
-                        dst
-                        (vm-value-not (funcall resolve a)))
-               '(:continue)))
-
-        (eq (emit-binop vm-value-eq))
-        (gt (emit-binop vm-value-gt))
-        (lt (emit-binop vm-value-lt))
-
-        (jmp (args-1 target (jmp target)))
-        (jz (args-2 target condition (jz (funcall resolve condition) target)))
-        (jnz (args-2 target condition (jnz (funcall resolve condition) target)))
-
-        (call (destructuring-bind (target . args) (cdr instruction)
-                (let ((resolved-values
-                        (loop for arg in args collect (funcall resolve arg))))
-                  (multiple-value-bind (control-directive new-frame-stack)
-                      (normal-call frame-stack target resolved-values return-address)
-                    (setf (vm-state-frame-stack vm) new-frame-stack)
-                    control-directive))))
-        (tail-call (destructuring-bind (target . args) (cdr instruction)
-                     (let ((resolved-values
-                             (loop for arg in args collect (funcall resolve arg))))
-                       (tail-call frame-stack target resolved-values))))
-        (ret (let ((resolved-returns
-                     (loop for ret in (cdr instruction) collect (funcall resolve ret))))
-               (multiple-value-bind (control-directive new-frame-stack)
-                   (ret frame-stack (frame-return-address (car frame-stack)) resolved-returns)
-                 (setf (vm-state-frame-stack vm) new-frame-stack)
-                 control-directive)))
-        (get-arg (args-2 dst n
-                   (funcall set-reg
-                            dst
-                            (frame-get-arg (car frame-stack) n))
-                   '(:continue)))
-        (get-ret (args-2 dst n
-                   (funcall set-reg
-                            dst
-                            (nth n (frame-return-values (car frame-stack))))
-                   '(:continue)))
-        (get-ret-count (args-1 dst
-                         (funcall set-reg
-                                  dst
-                                  (vm-value-make-int (length (frame-return-values (car frame-stack)))))
-                         '(:continue)))
-        (scope-enter (frame-push-scope (car frame-stack)) '(:continue))
-        (scope-exit (frame-pop-scope (car frame-stack)) '(:continue))
-
-        (concat (emit-binop vm-value-concat :use-string-table t))
-        (substr-start-end (args-4 dst s start end
-                            (funcall set-reg
-                                     dst
-                                     (vm-value-substr
-                                      (funcall resolve s)
-                                      (funcall resolve start)
-                                      (funcall resolve end)
+    (flet ((args (n) (values-list (subseq instruction 1 (1+ n))))
+           (resolve (x) (resolve-value (car frame-stack) x string-table))
+           (set-reg (dst value) (frame-set-reg (car frame-stack) dst value)))
+      (macrolet
+          ((emit-binop (fn &key use-string-table)
+             `(multiple-value-bind (dst a b) (args 3)
+                (if ,use-string-table
+                    (set-reg dst (,fn (resolve a)
+                                      (resolve b)
                                       :string-table string-table))
-                            '(:continue)))
-        (substr-start (args-3 dst s start
-                        (funcall set-reg
-                                 dst
-                                 (vm-value-substr
-                                  (funcall resolve s)
-                                  (funcall resolve start)
-                                  +vm-value-none+
-                                  :string-table string-table))
-                        '(:continue)))
-        (strlen (args-2 dst s
-                  (funcall set-reg
-                           dst
-                           (vm-value-strlen (funcall resolve s)))
-                  '(:continue)))
-
-        (print (args-1 a
-                 (format t "~A~%" (vm-value-str (funcall resolve a)))
+                    (set-reg dst (,fn (resolve a) (resolve b))))
+                '(:continue))))
+        (case head
+          (const (multiple-value-bind (dst literal) (args 2)
+                   (set-reg
+                    dst
+                    (vm-value-make-literal literal :string-table string-table))
+                   '(:continue)))
+          (mov (multiple-value-bind (dst a) (args 2)
+                 (set-reg dst (resolve a))
                  '(:continue)))
 
-        (halt '(:done))
-        (t (error 'vm-error
-                  :message "unknown instruction" :instruction instruction))))))
+          (add (emit-binop vm-value-add))
+          (sub (emit-binop vm-value-sub))
+          (mul (emit-binop vm-value-mul))
+          (div (emit-binop vm-value-div))
+          (mod (emit-binop vm-value-mod))
+          (not (multiple-value-bind (dst a) (args 2)
+                 (set-reg
+                  dst
+                  (vm-value-not (resolve a)))
+                 '(:continue)))
+
+          (eq (emit-binop vm-value-eq))
+          (gt (emit-binop vm-value-gt))
+          (lt (emit-binop vm-value-lt))
+
+          (jmp (multiple-value-bind (target) (args 1) (jmp target)))
+          (jz (multiple-value-bind (target condition) (args 2)
+                (jz (resolve condition) target)))
+          (jnz (multiple-value-bind (target condition) (args 2)
+                 (jnz (resolve condition) target)))
+
+          (call (destructuring-bind (target . args) (cdr instruction)
+                  (let ((resolved-values
+                          (loop for arg in args collect (resolve arg))))
+                    (multiple-value-bind (control-directive new-frame-stack)
+                        (normal-call frame-stack target resolved-values return-address)
+                      (setf (vm-state-frame-stack vm) new-frame-stack)
+                      control-directive))))
+          (tail-call (destructuring-bind (target . args) (cdr instruction)
+                       (let ((resolved-values
+                               (loop for arg in args collect (resolve arg))))
+                         (tail-call frame-stack target resolved-values))))
+          (ret (let ((resolved-returns
+                       (loop for ret in (cdr instruction) collect (resolve ret))))
+                 (multiple-value-bind (control-directive new-frame-stack)
+                     (ret frame-stack (frame-return-address (car frame-stack)) resolved-returns)
+                   (setf (vm-state-frame-stack vm) new-frame-stack)
+                   control-directive)))
+          (get-arg (multiple-value-bind (dst n) (args 2)
+                     (set-reg
+                      dst
+                      (frame-get-arg (car frame-stack) n))
+                     '(:continue)))
+          (get-ret (multiple-value-bind (dst n) (args 2)
+                     (set-reg
+                      dst
+                      (nth n (frame-return-values (car frame-stack))))
+                     '(:continue)))
+          (get-ret-count (multiple-value-bind (dst) (args 1)
+                           (set-reg
+                            dst
+                            (vm-value-make-int (length (frame-return-values (car frame-stack)))))
+                           '(:continue)))
+          (scope-enter (frame-push-scope (car frame-stack)) '(:continue))
+          (scope-exit (frame-pop-scope (car frame-stack)) '(:continue))
+
+          (concat (emit-binop vm-value-concat :use-string-table t))
+          (substr-start-end (multiple-value-bind
+                                  (dst s start end) (args 4)
+                              (set-reg
+                               dst
+                               (vm-value-substr
+                                (resolve s)
+                                (resolve start)
+                                (resolve end)
+                                :string-table string-table))
+                              '(:continue)))
+          (substr-start (multiple-value-bind (dst s start) (args 3)
+                          (set-reg
+                           dst
+                           (vm-value-substr
+                            (resolve s)
+                            (resolve start)
+                            +vm-value-none+
+                            :string-table string-table))
+                          '(:continue)))
+          (strlen (multiple-value-bind (dst s) (args 2)
+                    (set-reg
+                     dst
+                     (vm-value-strlen (resolve s)))
+                    '(:continue)))
+
+          (print (multiple-value-bind (a) (args 1)
+                   (format t "~A~%" (vm-value-str (resolve a)))
+                   '(:continue)))
+
+          (halt '(:done))
+          (t (error 'vm-error
+                    :message "unknown instruction" :instruction instruction)))))))
 
 (defun run-program (vm &key trace report-state-callback)
   (let ((done nil))
