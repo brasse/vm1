@@ -1,7 +1,7 @@
 (in-package :vm1)
 
 (defparameter +factorial-asm-iterative+
-  #((const n 5)
+  #((const n 8)
     (call factorial n)
     (get-ret result 0)
     (print result)
@@ -18,7 +18,7 @@
     (ret acc)))
 
 (defparameter +factorial-asm-recursive+
-  #((const n 5)
+  #((const n 8)
     (call factorial n)
     (get-ret result 0)
     (print result)
@@ -42,7 +42,7 @@
     (ret result)))
 
 (defparameter +factorial-asm-tail-recursive+
-  #((const n 1000)
+  #((const n 8)
     (const acc 1)
     (call factorial n acc)
     (get-ret result 0)
@@ -67,7 +67,7 @@
     (ret result)))
 
 (defparameter +fibonacci-asm-iterative+
-  #((const n 6)
+  #((const n 20)
     (call fibonacci n)
     (get-ret result 0)
     (print result)
@@ -87,7 +87,7 @@
     (ret a)))
 
 (defparameter +fibonacci-asm-recurursive+
-  #((const n 6)
+  #((const n 20)
     (call fibonacci n)
     (get-ret result 0)
     (print result)
@@ -113,4 +113,32 @@
     (get-ret fib-2 0)
 
     (add result fib-1 fib-2)    ; fib(n) = fib(n - 1) + fib(n - 2)
+    (ret result)))
+
+(defparameter +fibonacci-asm-tail-recurursive+
+  #((const n 20)
+    (const a 1)
+    (const b 1)
+    (call fibonacci n a b)
+    (get-ret result 0)
+    (print result)
+    (halt)
+
+    (label fibonacci)
+    (get-arg n 0)
+    (get-arg a 1)
+    (get-arg b 2)
+
+    (eq tst 1 n)                 ; return a if n = 1
+    (jz recur tst)
+    (ret a)
+
+    (label recur)
+
+    (sub n n 1)
+    (add a a b)
+
+    (tail-call fibonacci n b a)      ; fib(n - 1, b, (a + b))
+    (get-ret result 0)
+
     (ret result)))
