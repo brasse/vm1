@@ -219,3 +219,20 @@
     (apply #'aref (cons actual-array actual-indices))))
 
 (def-vm-value-op vm-value-array-rank (:array) :int #'array-rank)
+
+(defun vm-value-array-dim-size (arr axis)
+  (let ((arr-type (vm-value-type arr))
+        (arr-value (vm-value-payload arr))
+        (axis-type (vm-value-type axis))
+        (axis-value (vm-value-payload axis)))
+    (unless (equal (list arr-type axis-type) '(:array :int))
+      (error 'vm-type-error :instruction (current-instruction)
+                            :expected '(:array :int) :actual (list arr-type axis-type)))
+    (let ((arr-rank (array-rank arr-value)))
+      (unless (and (> axis-value 0) (< axis-value arr-rank))
+        (error 'vm-index-out-of-bounds
+               :instruction (current-instruction)
+               :message (format nil
+                                "invalid axis index ~A for array with rank ~A"
+                                axis-value arr-rank)))
+      (vm-value-make-int (array-dimension arr-value axis-value)))))
