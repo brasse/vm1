@@ -24,8 +24,15 @@
   (make-vm-value :type :string :payload (%vm-value-intern-string s string-table)))
 
 (defun vm-value-make-array (dimensions)
-  (make-vm-value :type :array
-                 :payload (make-array dimensions :initial-element +vm-value-none+)))
+  (let ((rank (length dimensions))
+        (dimension-types (mapcar #'vm-value-type dimensions))
+        (dimension-values (mapcar #'vm-value-payload dimensions)))
+    (unless (every (lambda (type) (eq :int type)) dimension-types)
+      (error 'vm-type-error :instruction (current-instruction)
+                            :expected (make-list rank :initial-element :int)
+                            :actual dimension-types))
+    (make-vm-value :type :array
+                   :payload (make-array dimension-values :initial-element +vm-value-none+))))
 
 (defun vm-value-make-literal (x &key string-table)
   (cond
@@ -45,6 +52,7 @@
       (:int (= payload 0))
       (:string (string= payload ""))
       (:bool (not payload))
+      (:array (zerop (array-total-size payload)))
       (:none t))))
 
 (defun vm-value-str (x)
@@ -54,6 +62,9 @@
             (case type
               ((:int :string) payload)
               (:bool (if payload "true" "false"))
+              (:array (if (= 1 (array-rank payload))
+                          (format nil "[~{~A~^, ~}]" (map 'list #'vm-value-str payload))
+                          "[ sorry, print not implemented for n-dimensional arrays ]"))
               (:none "none")))))
 
 (defun %vm-value-str (x)
@@ -220,6 +231,13 @@
 
 (def-vm-value-op vm-value-array-rank (:array) :int #'array-rank)
 
+;; (defun vm-value-array-rank (arr)
+;;   (let ((type (vm-value-type arr)))
+;;     (unless (eq :array type)
+;;       (error 'vm-type-error :instruction (current-instruction)
+;;                             :expected :array :actual type))
+;;     (vm-value-make-int (array-rank (vm-value-payload arr)))))
+
 (defun vm-value-array-dim-size (arr axis)
   (let ((arr-type (vm-value-type arr))
         (arr-value (vm-value-payload arr))
@@ -229,7 +247,7 @@
       (error 'vm-type-error :instruction (current-instruction)
                             :expected '(:array :int) :actual (list arr-type axis-type)))
     (let ((arr-rank (array-rank arr-value)))
-      (unless (and (> axis-value 0) (< axis-value arr-rank))
+      (unless (and (>= axis-value 0) (< axis-value arr-rank))
         (error 'vm-index-out-of-bounds
                :instruction (current-instruction)
                :message (format nil

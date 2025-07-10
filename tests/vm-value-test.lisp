@@ -191,3 +191,56 @@
          (a (vm-value-make-literal "12345" :string-table string-table)))
     (is (= 0 (vm-value-payload (vm-value-strlen empty-string))))
     (is (= 5 (vm-value-payload (vm-value-strlen a))))))
+
+(test vec-constructor-and-rank
+  (let* ((len 4)
+         (vec (vm-value-make-array (list (vm-value-make-int len)))))
+    (is (eq :array (vm-value-type vec)))
+    (is (= 1 (vm-value-payload (vm-value-array-rank vec))))
+    (is (= len (length (vm-value-payload vec))))))
+
+(test vec-dim-size-and-oob
+  (let* ((len 3)
+         (vec (vm-value-make-array (list (vm-value-make-int len)))))
+    (is (= len (vm-value-payload
+                (vm-value-array-dim-size vec (vm-value-make-int 0)))))
+    (signals vm-index-out-of-bounds
+      (vm-value-array-dim-size vec (vm-value-make-int 1)))))
+
+(test vec-set-get
+  (let ((vec (vm-value-make-array (list (vm-value-make-int 2))))
+        (zero (vm-value-make-int 0))
+        (one (vm-value-make-int 1))
+        (two (vm-value-make-int 2)))
+    (vm-value-array-set vec (list zero) one)
+    (vm-value-array-set vec (list one) two)
+    (is (eq one (vm-value-array-get vec (list zero))))
+    (is (eq two (vm-value-array-get vec (list one))))))
+
+(test vec-set-get-oob
+  (let ((vec (vm-value-make-array (list (vm-value-make-int 2))))
+        (minus-one (vm-value-make-int -1))
+        (two (vm-value-make-int 2)))
+    (signals vm-index-out-of-bounds
+      (vm-value-array-get vec (list minus-one)))
+    (signals vm-index-out-of-bounds
+      (vm-value-array-get vec (list two)))
+    (signals vm-index-out-of-bounds
+      (vm-value-array-set vec (list minus-one) +vm-value-none+))
+    (signals vm-index-out-of-bounds
+      (vm-value-array-set vec (list two) +vm-value-none+))))
+
+(test vec-falsep
+  (let* ((empty (vm-value-make-array (list (vm-value-make-int 0))))
+         (non-empty (vm-value-make-array (list (vm-value-make-int 1)))))
+    (is (vm-value-falsep empty))
+    (is (not (vm-value-falsep non-empty)))))
+
+(test vec-printer
+  (let ((vec (vm-value-make-array (list (vm-value-make-int 2)))))
+    (vm-value-array-set vec (list (vm-value-make-int 0)) (vm-value-make-int 10))
+    (is (string= "[10, none]" (vm-value-str vec)))))
+
+(test vec-empty-printer
+  (let ((vec (vm-value-make-array (list (vm-value-make-int 0)))))
+    (is (string= "[]" (vm-value-str vec)))))

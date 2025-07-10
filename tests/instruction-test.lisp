@@ -57,3 +57,22 @@
 (test add-fails-on-not-int
   (let ((vm (setup #((add foo 100 "foo")))))
     (signals vm-type-error (run-program vm))))
+
+;; add str tests
+
+(test vec-instruction-happy-path
+  (let ((prog #((vec-make v 3)          ; v = [none none none]
+                (vec-set v 0 42)
+                (vec-get x v 0)
+                (print x)               ; should print 42
+                (vec-len n v)
+                (print n)               ; prints 3
+                (halt))))
+    (is (equalp
+         '("42" "3")
+         (capture-output
+          (lambda () (fancy-run-program :program prog)))))))
+
+(test vec-set-type-error
+  (let* ((vm (setup #((vec-set 123 0 0))))) ; first arg not a vector
+    (signals vm-type-error (run-program vm))))

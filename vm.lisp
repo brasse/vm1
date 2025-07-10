@@ -172,6 +172,24 @@
                      dst
                      (vm-value-strlen (resolve s)))
                     '(:continue)))
+          (vec-make (multiple-value-bind (dst len) (args 2)
+                      (set-reg
+                       dst
+                       (vm-value-make-array (list (resolve len))))
+                      '(:continue)))
+          (vec-len (multiple-value-bind (dst vec) (args 2)
+                     (set-reg
+                      dst
+                      (vm-value-array-dim-size (resolve vec) (vm-value-make-int 0)))
+                     '(:continue)))
+          (vec-set (multiple-value-bind (vec idx val) (args 3)
+                     (vm-value-array-set (resolve vec) (list (resolve idx)) (resolve val))
+                     '(:continue)))
+          (vec-get (multiple-value-bind (dst vec idx) (args 3)
+                     (set-reg
+                      dst
+                      (vm-value-array-get (resolve vec) (list (resolve idx))))
+                     '(:continue)))
 
           (print (multiple-value-bind (a) (args 1)
                    (format t "~A~%" (vm-value-str (resolve a)))
