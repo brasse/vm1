@@ -34,6 +34,10 @@
     (make-vm-value :type :array
                    :payload (make-array dimension-values :initial-element +vm-value-none+))))
 
+(defun vm-value-make-map ()
+  (make-vm-value :type :map
+                 :payload (make-hash-table :test #'equal)))
+
 (defun vm-value-make-literal (x &key string-table)
   (cond
     ((integerp x) (vm-value-make-int x))
@@ -53,9 +57,10 @@
       (:string (string= payload ""))
       (:bool (not payload))
       (:array (zerop (array-total-size payload)))
+      (:map (zerop (hash-table-count payload)))
       (:none t))))
 
-(defun vm-value-str (x)
+(defun vm-value-str (x &optional string-table)
   (let ((type (vm-value-type x))
         (payload (vm-value-payload x)))
     (format nil "~A"
@@ -65,6 +70,15 @@
               (:array (if (= 1 (array-rank payload))
                           (format nil "[~{~A~^, ~}]" (map 'list #'vm-value-str payload))
                           "[ sorry, print not implemented for n-dimensional arrays ]"))
+              (:map
+               (format nil "{~{~A: ~A~^, ~}}"
+                       (loop for k being the hash-keys of payload using (hash-value v)
+                             ;; reconstruct the vm-value from the key
+                             ;; it might be a string so that's why we need the string-table
+                             collect (vm-value-str
+                                      (%key->vm-value k string-table)
+                                      string-table)
+                             collect (vm-value-str v))))
               (:none "none")))))
 
 (defun %vm-value-str (x)
@@ -254,3 +268,46 @@
                                 "invalid axis index ~A for array with rank ~A"
                                 axis-value arr-rank)))
       (vm-value-make-int (array-dimension arr-value axis-value)))))
+
+(defun %vm-value->key (key)
+  (unless (vm-value-p key)
+    (error 'vm-internal-error :message "can only use vm-value as key into map"))
+  (let ((type (vm-value-type key))  (payload (vm-value-payload key)))
+    (if (member type '(:int :string :bool :none))
+        (list type payload)
+        (error 'vm-internal-error
+               :message "only scalar vm-values can be used as key into map"))))
+
+(defun %key->vm-value (key string-table)
+  (destructuring-bind (type payload) key
+    (ecase type
+      (:int    (vm-value-make-int payload))
+      (:string (vm-value-make-string payload string-table))
+      (:bool   (if payload +vm-value-true+ +vm-value-false+))
+      (:none   +vm-value-none+))))
+
+(defun vm-value-map-has (map key)
+  (let ((map-type (vm-value-type map)))
+    (unless (eq :map map-type)
+      (error 'vm-type-error :instruction (current-instruction)
+                            :expected :map :actual map-type)))
+  (nth-value 1 (gethash (%vm-value->key key) (vm-value-payload map))))
+
+(defun vm-value-map-set (map key value)
+  (let ((map-type (vm-value-type map)))
+    (unless (eq :map map-type)
+      (error 'vm-type-error :instruction (current-instruction)
+                            :expected :map :actual map-type)))
+  (unless (vm-value-p value)
+    (error 'vm-internal-error :message "can only use vm-value as value into map"))
+  (setf (gethash (%vm-value->key key) (vm-value-payload map)) value))
+
+(defun vm-value-map-get (map key)
+  (let ((map-type (vm-value-type map)))
+    (unless (eq :map map-type)
+      (error 'vm-type-error :instruction (current-instruction)
+                            :expected :map :actual map-type)))
+  (multiple-value-bind (value present-p) (gethash (%vm-value->key key) (vm-value-payload map))
+    (if present-p
+        value
+        +vm-value-none+)))

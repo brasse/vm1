@@ -192,6 +192,10 @@
     (is (= 0 (vm-value-payload (vm-value-strlen empty-string))))
     (is (= 5 (vm-value-payload (vm-value-strlen a))))))
 
+;;;;
+;;;;  Vector tests
+;;;;
+
 (test vec-constructor-and-rank
   (let* ((len 4)
          (vec (vm-value-make-array (list (vm-value-make-int len)))))
@@ -244,3 +248,80 @@
 (test vec-empty-printer
   (let ((vec (vm-value-make-array (list (vm-value-make-int 0)))))
     (is (string= "[]" (vm-value-str vec)))))
+
+;;;;
+;;;;  Map tests
+;;;;
+
+(test map-constructor-and-falsep
+  (let ((m (vm-value-make-map)))
+    (is (vm-value-falsep m))))
+
+(test map-set-and-get
+  (let* ((strtab (make-hash-table))
+         (m      (vm-value-make-map))
+         (k1     (vm-value-make-int  1))
+         (k2     (vm-value-make-string "foo" strtab))
+         (v1     (vm-value-make-int  42))
+         (v2     (vm-value-make-string "bar" strtab)))
+    (vm-value-map-set m k1 v1)
+    (vm-value-map-set m k2 v2)
+    ;; map is no longer “false”
+    (is (not (vm-value-falsep m)))
+    ;; round‑trip
+    (is (eq v1 (vm-value-map-get m k1)))
+    (is (eq v2 (vm-value-map-get m k2)))))
+
+(test map-overwrite
+  (let ((m   (vm-value-make-map))
+        (k   (vm-value-make-int 0))
+        (v1  (vm-value-make-int 10))
+        (v2  (vm-value-make-int 20)))
+    (vm-value-map-set m k v1)
+    (vm-value-map-set m k v2)
+    (is (eq v2 (vm-value-map-get m k)))))
+
+(test map-has
+  (let ((m   (vm-value-make-map))
+        (k   (vm-value-make-int 0)))
+    (vm-value-map-set m k (vm-value-make-int 42))
+    (is (vm-value-map-has m k))
+    (is (not (vm-value-map-has m (vm-value-make-int 1))))))
+
+(test map-missing-key-returns-none
+  (let* ((m (vm-value-make-map))
+         (missing (vm-value-make-int 999)))
+    (is (eq +vm-value-none+ (vm-value-map-get m missing)))))
+
+(test map-type-error-on-non-map
+  (let ((not-map (vm-value-make-int 0))
+        (k       (vm-value-make-int 1))
+        (v       (vm-value-make-int 2)))
+    (signals vm-type-error (vm-value-map-set not-map k v))
+    (signals vm-type-error (vm-value-map-get not-map k))))
+
+(test map-key-must-be-scalar-vm-value
+  (let ((m (vm-value-make-map))
+        (bad-key (vm-value-make-map)))
+    (signals vm-internal-error
+      (vm-value-map-set m bad-key +vm-value-none+))))
+
+(test map-value-must-be-vm-value
+  (let ((m   (vm-value-make-map))
+        (key (vm-value-make-int 0)))
+    ;; 123 is not a vm‑value instance
+    (signals vm-internal-error
+      (vm-value-map-set m key 123))))
+
+(test map-printer
+  (let* ((strtab (make-hash-table))
+         (m      (vm-value-make-map)))
+    (vm-value-map-set m
+                      (vm-value-make-string "foo" strtab)
+                      (vm-value-make-int 10))
+    (is (string= "{foo: 10}"
+                 (vm-value-str m strtab)))))
+
+(test map-printer-empty
+  (let ((m (vm-value-make-map)))
+    (is (string= "{}" (vm-value-str m)))))

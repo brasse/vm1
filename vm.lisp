@@ -192,7 +192,7 @@
                      '(:continue)))
 
           (print (multiple-value-bind (a) (args 1)
-                   (format t "~A~%" (vm-value-str (resolve a)))
+                   (format t "~A~%" (vm-value-str (resolve a) string-table))
                    '(:continue)))
 
           (halt '(:done))
