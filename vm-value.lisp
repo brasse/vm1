@@ -4,6 +4,14 @@
   type
   payload)
 
+(declaim (inline %assert-type))
+(defun %assert-type (val expected-type)
+  (unless (eq (vm-value-type val) expected-type)
+    (error 'vm-type-error
+           :instruction (current-instruction)
+           :expected    expected-type
+           :actual      (vm-value-type val))))
+
 (defparameter +vm-value-false+
   (make-vm-value :type :bool :payload nil))
 
@@ -199,11 +207,7 @@
         +vm-value-false+)))
 
 (defun %decode-indices (arr indices)
-  ;; check array type
-  (let ((type (vm-value-type arr)))
-    (unless (eq :array type)
-      (error 'vm-type-error :instruction (current-instruction)
-                            :expected :array :actual type)))
+  (%assert-type arr :array)
 
   (let* ((actual-array (vm-value-payload arr))
          (rank (array-rank actual-array))
@@ -287,27 +291,18 @@
       (:none   +vm-value-none+))))
 
 (defun vm-value-map-has (map key)
-  (let ((map-type (vm-value-type map)))
-    (unless (eq :map map-type)
-      (error 'vm-type-error :instruction (current-instruction)
-                            :expected :map :actual map-type)))
+  (%assert-type map :map)
   (nth-value 1 (gethash (%vm-value->key key) (vm-value-payload map))))
 
 (defun vm-value-map-set (map key value)
-  (let ((map-type (vm-value-type map)))
-    (unless (eq :map map-type)
-      (error 'vm-type-error :instruction (current-instruction)
-                            :expected :map :actual map-type)))
+  (%assert-type map :map)
   (unless (vm-value-p value)
     (error 'vm-internal-error :message "can only use vm-value as value into map"))
   (setf (gethash (%vm-value->key key) (vm-value-payload map)) value))
 
 (defun vm-value-map-get (map key)
-  (let ((map-type (vm-value-type map)))
-    (unless (eq :map map-type)
-      (error 'vm-type-error :instruction (current-instruction)
-                            :expected :map :actual map-type)))
-  (multiple-value-bind (value present-p) (gethash (%vm-value->key key) (vm-value-payload map))
-    (if present-p
-        value
-        +vm-value-none+)))
+  (%assert-type map :map)
+
+  (if present-p
+      value
+      +vm-value-none+)))
