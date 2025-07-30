@@ -276,7 +276,7 @@
 (defun %vm-value->key (key)
   (unless (vm-value-p key)
     (error 'vm-internal-error :message "can only use vm-value as key into map"))
-  (let ((type (vm-value-type key))  (payload (vm-value-payload key)))
+  (let ((type (vm-value-type key)) (payload (vm-value-payload key)))
     (if (member type '(:int :string :bool :none))
         (list type payload)
         (error 'vm-internal-error
