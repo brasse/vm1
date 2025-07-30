@@ -249,13 +249,6 @@
 
 (def-vm-value-op vm-value-array-rank (:array) :int #'array-rank)
 
-;; (defun vm-value-array-rank (arr)
-;;   (let ((type (vm-value-type arr)))
-;;     (unless (eq :array type)
-;;       (error 'vm-type-error :instruction (current-instruction)
-;;                             :expected :array :actual type))
-;;     (vm-value-make-int (array-rank (vm-value-payload arr)))))
-
 (defun vm-value-array-dim-size (arr axis)
   (let ((arr-type (vm-value-type arr))
         (arr-value (vm-value-payload arr))
