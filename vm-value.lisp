@@ -295,7 +295,8 @@
 
 (defun vm-value-map-get (map key)
   (%assert-type map :map)
-
-  (if present-p
-      value
-      +vm-value-none+)))
+  (multiple-value-bind (value present-p)
+      (gethash (%vm-value->key key) (vm-value-payload map))
+    (if present-p
+        value
+        +vm-value-none+)))
