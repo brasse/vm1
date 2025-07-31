@@ -307,7 +307,9 @@
 
 (defun vm-value-map-has (map key)
   (%assert-type map :map)
-  (nth-value 1 (gethash (%vm-value->key key) (vm-value-payload map))))
+  (if (nth-value 1 (gethash (%vm-value->key key) (vm-value-payload map)))
+      +vm-value-true+
+      +vm-value-false+))
 
 (defun vm-value-map-set (map key value)
   (%assert-type map :map)
