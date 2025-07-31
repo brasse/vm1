@@ -64,10 +64,9 @@
   (let ((prog #((vec-make v 3)          ; v = [none none none]
                 (vec-set v 0 42)
                 (vec-get x v 0)
-                (print x)               ; should print 42
+                (print x)               ; prints 42
                 (vec-len n v)
-                (print n)               ; prints 3
-                (halt))))
+                (print n))))            ; prints 3
     (is (equalp
          '("42" "3")
          (capture-output
@@ -75,4 +74,46 @@
 
 (test vec-set-type-error
   (let* ((vm (setup #((vec-set 123 0 0))))) ; first arg not a vector
+    (signals vm-type-error (run-program vm))))
+
+;;;;
+;;;;  map instruction tests
+;;;;
+
+(single-reg-test
+    map-make-produces-map 'm #((map-make m))
+  (is (eq :map (vm-value-type value))))
+
+(test map-set-get-happy-path
+  (let ((prog #((map-make m)
+                (const k "foo")
+                (const v 42)
+                (map-set m k v)
+                (map-get x m k)
+                (print x))))
+    (is (equal
+         '("42")
+         (capture-output
+          (lambda () (fancy-run-program :program prog)))))))
+
+(test map-has-true-and-false
+  (let ((prog #((map-make m)
+                (const k "k")
+                (map-set m k 1)
+                (map-has present m k)      ; true
+                (map-has absent  m "z")    ; false
+                (print present)
+                (print absent))))
+    (is (equal
+         '("true" "false")
+         (capture-output
+          (lambda () (fancy-run-program :program prog)))))))
+
+(test map-set-type-error-non-map
+  (let ((vm (setup #((map-set 123 "foo" 0)))))
+    (signals vm-type-error (run-program vm))))
+
+
+(test map-get-type-error-non-map
+  (let ((vm (setup #((map-get x 123 "foo")))))
     (signals vm-type-error (run-program vm))))

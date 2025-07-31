@@ -190,6 +190,24 @@
                       dst
                       (vm-value-array-get (resolve vec) (list (resolve idx))))
                      '(:continue)))
+          (map-make (multiple-value-bind (dst) (args 1)
+                      (set-reg
+                       dst
+                       (vm-value-make-map))
+                      '(:continue)))
+          (map-set (multiple-value-bind (map key val) (args 3)
+                     (vm-value-map-set (resolve map) (resolve key) (resolve val))
+                     '(:continue)))
+          (map-get (multiple-value-bind (dst map key) (args 3)
+                     (set-reg
+                      dst
+                      (vm-value-map-get (resolve map) (resolve key)))
+                     '(:continue)))
+          (map-has (multiple-value-bind (dst map key) (args 3)
+                     (set-reg
+                      dst
+                      (vm-value-map-has (resolve map) (resolve key)))
+                     '(:continue)))
 
           (print (multiple-value-bind (a) (args 1)
                    (format t "~A~%" (vm-value-str (resolve a) string-table))
