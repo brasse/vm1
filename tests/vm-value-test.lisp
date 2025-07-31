@@ -250,6 +250,22 @@
     (is (string= "[]" (vm-value-str vec)))))
 
 ;;;;
+;;;;  Struct tests
+;;;;
+
+(test struct-truthiness
+  (let ((s (vm-value-make-struct 'point 2)))
+    (is (not (vm-value-falsep s)))))
+
+(test struct-print
+  (let ((strtab (make-hash-table))
+        (p (vm-value-make-struct 'p 2)))
+    (vm-value-array-set p (list (vm-value-make-int 0)) (vm-value-make-int 5))
+    (is (stringp (vm-value-str p strtab)))
+    ;; sanity: contains the struct id
+    (is (search "#<struct P" (vm-value-str p strtab)))))
+
+;;;;
 ;;;;  Map tests
 ;;;;
 

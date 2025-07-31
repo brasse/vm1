@@ -1,16 +1,26 @@
 (in-package :vm1)
 
 (defstruct vm-value
-  type
-  payload)
+  type ;; :int, :string, :bool, :none, :array, :struct, :map
+  payload
+
+  ;; Each struct gets its own unique ID. The VM will make no
+  ;; difference between arrays and structs. Structs are implemented
+  ;; using arrays and the language/compiler layer keeps track of
+  ;; struct definitions, assigns a unique ID to each of them and maps
+  ;; fields to slots in the array.
+  id)
 
 (declaim (inline %assert-type))
-(defun %assert-type (val expected-type)
-  (unless (eq (vm-value-type val) expected-type)
+(defun %assert-type (value expected)
+  (unless
+      (if (consp expected)
+          (member (vm-value-type value) expected)
+          (eq (vm-value-type value) expected))
     (error 'vm-type-error
            :instruction (current-instruction)
-           :expected    expected-type
-           :actual      (vm-value-type val))))
+           :expected    expected
+           :actual      (vm-value-type value))))
 
 (defparameter +vm-value-false+
   (make-vm-value :type :bool :payload nil))
@@ -42,6 +52,11 @@
     (make-vm-value :type :array
                    :payload (make-array dimension-values :initial-element +vm-value-none+))))
 
+(defun vm-value-make-struct (id n)
+  (make-vm-value :type :struct
+                 :payload (make-array n :initial-element +vm-value-none+)
+                 :id id))
+
 (defun vm-value-make-map ()
   (make-vm-value :type :map
                  :payload (make-hash-table :test #'equal)))
@@ -65,6 +80,7 @@
       (:string (string= payload ""))
       (:bool (not payload))
       (:array (zerop (array-total-size payload)))
+      (:struct nil)
       (:map (zerop (hash-table-count payload)))
       (:none t))))
 
@@ -76,8 +92,14 @@
               ((:int :string) payload)
               (:bool (if payload "true" "false"))
               (:array (if (= 1 (array-rank payload))
-                          (format nil "[~{~A~^, ~}]" (map 'list #'vm-value-str payload))
+                          (format nil "[~{~A~^, ~}]"
+                                  (map 'list (lambda (x) (vm-value-str x string-table))
+                                       payload))
                           "[ sorry, print not implemented for n-dimensional arrays ]"))
+              (:struct
+               (format nil "#<struct ~A {~{~A~^, ~}}>"
+                       (vm-value-id x)
+                       (map 'list (lambda (x) (vm-value-str x string-table)) payload)))
               (:map
                (format nil "{~{~A: ~A~^, ~}}"
                        (loop for k being the hash-keys of payload using (hash-value v)
@@ -207,7 +229,7 @@
         +vm-value-false+)))
 
 (defun %decode-indices (arr indices)
-  (%assert-type arr :array)
+  (%assert-type arr '(:array :struct))
 
   (let* ((actual-array (vm-value-payload arr))
          (rank (array-rank actual-array))
