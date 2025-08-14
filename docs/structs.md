@@ -25,9 +25,9 @@ or just
 
 Create a struct with the specified ID.
 
-`dst` - destination register
-`struct-id` - a symbol identifying the struct type
-`n` - number of fields in the struct
+- `dst` - destination register
+- `struct-id` - a symbol identifying the struct type
+- `n` - number of fields in the struct
 
 e.g. `(struct-make x point 2)`
 
@@ -41,9 +41,9 @@ e.g. `(struct-id id foo)`
 
 Create a (struct-id, field-name) to slot index mapping and store it in the VM.
 
-`struct-id` - a symbol indentifying the struct type
-`field-name` - a symbol identifying the a field in the struct
-`slot-idx` - the index in the underlying array that will store the field value
+- `struct-id` - a symbol indentifying the struct type
+- `field-name` - a symbol identifying the a field in the struct
+- `slot-idx` - the index in the underlying array that will store the field value
 
 e.g. `(define-struct-slot point x 0)`
 
@@ -74,8 +74,8 @@ e.g. `(struct-slot idx point x)`
 
 Define a struct with the specified id and fields.
 
-`struct-id` - a symbol identifying the struct type
-`field-name-n` - a symbol identifyign a field
+- `struct-id` - a symbol identifying the struct type
+- `field-name-n` - a symbol identifyign a field
 
 e.g. `(define-struct :point :x :y)`
 
@@ -89,9 +89,9 @@ e.g. `(struct-make p :point)`
 
 Get value specified by field name from struct.
 
-`dst` - destination register
-`struct` - a struct
-`field-name` - a symbol identifying a field
+- `dst` - destination register
+- `struct` - a struct
+- `field-name` - a symbol identifying a field
 
 e.g. `(struct-get x p :x)`
 
