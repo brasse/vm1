@@ -49,14 +49,14 @@ Define a struct with the specified id and fields.
 Needs check that no struct with this id is already defined and store
 the struct definition.
 
-e.g. '(vm-value-struct-define :point '(:x :y))`
+e.g. `(vm-value-struct-define :point '(:x :y))`
 
 ### (vm-struct-make (struct-id) ...)
 
 Create a struct according to the struct definition referenced by
 struct id. All fields are set to `none`.
 
-e.g. '(vm-struct-make :point)`
+e.g. `(vm-struct-make :point)`
 
 ### (vm-value-struct-set struct field-id value)
 
@@ -70,6 +70,8 @@ Set the field referenced by `field-id` in `struct` to `value`.
   - Signal an error if the field doens't exist
 - Write `value` to the correct position in the underlying array
 
+e.g `(vm-value-struct-set p :x (vm-value-make-int 12))`
+
 ### (vm-value-struct-get struct field-id)
 
 Return the value in the field referenced by `field-id` in `struct`.
@@ -80,6 +82,8 @@ Return the value in the field referenced by `field-id` in `struct`.
 - Get field index for `field-id`
   - Signal an error if the field doens't exist
 - Return the value at the correct position in the underlying array
+
+e.g `(vm-value-struct-get p :x)`
 
 ## VM instructions
 
