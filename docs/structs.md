@@ -19,7 +19,116 @@ or just
 (struct-make p :point 2)
 ```
 
-# Option A
+# Structs are just arrays
+
+We'll implement structs using one dimensional arrays. Field access is
+the same as array element access.
+
+# Option A - the one we'll use
+
+## vm-value functions
+
+The VM will keep track of struct definitions in a struct table. This
+table is some data structure that keeps track of struct id to struct
+definition mappings. The table is most likely implemented with a map.
+
+Struct definitions look like this:
+
+```
+(defstruct struct-definition
+  id ;; :point, :user
+  field-map ;; map containing field id to field idx mappings
+            ;; :x -> 0, :y -> 1
+)
+```
+
+### (vm-value-struct-define (struct-id fields) ...)
+
+Define a struct with the specified id and fields.
+
+Needs check that no struct with this id is already defined and store
+the struct definition.
+
+e.g. '(vm-value-struct-define :point '(:x :y))`
+
+### (vm-struct-make (struct-id) ...)
+
+Create a struct according to the struct definition referenced by
+struct id. All fields are set to `none`.
+
+e.g. '(vm-struct-make :point)`
+
+### (vm-value-struct-set struct field-id value)
+
+Set the field referenced by `field-id` in `struct` to `value`.
+
+- Assert types of the arguments
+  - `struct` is `:struct`
+  - `field-id` is `:symbol`
+  - `value` is a `vm-value`
+- Get field index for `field-id`
+  - Signal an error if the field doens't exist
+- Write `value` to the correct position in the underlying array
+
+### (vm-value-struct-get struct field-id)
+
+Return the value in the field referenced by `field-id` in `struct`.
+
+- Assert types of the arguments
+  - `struct` is `:struct`
+  - `field-id` is `:symbol`
+- Get field index for `field-id`
+  - Signal an error if the field doens't exist
+- Return the value at the correct position in the underlying array
+
+## VM instructions
+
+### (define-struct struct-id field-name-0 field-name-1 ... field-name-n) ###
+
+Define a struct with the specified id and fields.
+
+- `struct-id` - a symbol identifying the struct type
+- `field-name-n` - a symbol identifyign a field
+
+e.g. `(define-struct :point :x :y)`
+
+### (struct-make dst struct-id)
+
+Create a struct with the specified struct-id.
+
+e.g. `(struct-make p :point)`
+
+### (struct-get dst struct field-name)
+
+Get value specified by field name from struct.
+
+- `dst` - destination register
+- `struct` - a struct
+- `field-name` - a symbol identifying a field
+
+e.g. `(struct-get x p :x)`
+
+### (struct-set struct field-name value)
+
+Set the field identified by field-name in struct to value.
+
+e.g. `(struct-set p :x 1000)`
+
+### Example code
+
+```
+(define-struct :point :x :y)
+(struct-make a-point :point)
+(struct-set a-point :x 100)
+(struct-set a-point :y 200)
+
+;; assume foo contains a struct
+
+(struct-get x foo :x)
+(struct-get y foo :y)
+```
+
+# Option B - runner up
 
 ## (struct-make dst struct-id n)
 
@@ -66,51 +175,4 @@ e.g. `(struct-slot idx point x)`
 (struct-id sid foo)
 (struct-slot x-idx sid :x)
 (vec-set foo x-idx 1000)
-```
-
-# Option B
-
-## (define-struct struct-id field-name-0 field-name-1 ... field-name-n)
-
-Define a struct with the specified id and fields.
-
-- `struct-id` - a symbol identifying the struct type
-- `field-name-n` - a symbol identifyign a field
-
-e.g. `(define-struct :point :x :y)`
-
-## (struct-make dst struct-id)
-
-Create a struct with the specified struct-id.
-
-e.g. `(struct-make p :point)`
-
-## (struct-get dst struct field-name)
-
-Get value specified by field name from struct.
-
-- `dst` - destination register
-- `struct` - a struct
-- `field-name` - a symbol identifying a field
-
-e.g. `(struct-get x p :x)`
-
-## (struct-set struct field-name value)
-
-Set the field identified by field-name in struct to value.
-
-e.g. `(struct-set p :x 1000)`
-
-## Example code
-
-```
-(define-struct :point :x :y)
-(struct-make a-point :point)
-(struct-set a-point :x 100)
-(struct-set a-point :y 200)
-
-;; assume foo contains a struct
-
-(struct-get x foo :x)
-(struct-get y foo :y)
 ```
