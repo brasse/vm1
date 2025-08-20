@@ -299,8 +299,8 @@
   (let ((m   (vm-value-make-map))
         (k   (vm-value-make-int 0)))
     (vm-value-map-set m k (vm-value-make-int 42))
-    (is (vm-value-map-has m k))
-    (is (not (vm-value-map-has m (vm-value-make-int 1))))))
+    (is (eq +vm-value-true+ (vm-value-map-has m k)))
+    (is (eq +vm-value-false+ (vm-value-map-has m (vm-value-make-int 1))))))
 
 (test map-missing-key-returns-none
   (let* ((m (vm-value-make-map))
