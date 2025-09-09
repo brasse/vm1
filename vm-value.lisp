@@ -1,7 +1,7 @@
 (in-package :vm1)
 
 (defstruct vm-value
-  type ;; :int, :string, :bool, :none, :array, :struct, :map
+  type ;; :int, :string, :bool, :none, :array, :struct, :map, :symbol
   payload
 
   ;; Each struct gets its own unique ID. The VM will make no
@@ -41,6 +41,9 @@
 (defun vm-value-make-string (s string-table)
   (make-vm-value :type :string :payload (%vm-value-intern-string s string-table)))
 
+(defun vm-value-make-symbol (symbol)
+  (make-vm-value :type :symbol :payload symbol))
+
 (defun vm-value-make-array (dimensions)
   (let ((rank (length dimensions))
         (dimension-types (mapcar #'vm-value-type dimensions))
@@ -68,6 +71,7 @@
                    (vm-assert string-table
                        "string-table must be provided for string literals")
                    (vm-value-make-string x string-table)))
+    ((keywordp x) (vm-value-make-symbol x))
     ((eq x 'true) +vm-value-true+)
     ((eq x 'false) +vm-value-false+)
     ((eq x 'none) +vm-value-none+)
@@ -82,6 +86,7 @@
       (:array (zerop (array-total-size payload)))
       (:struct nil)
       (:map (zerop (hash-table-count payload)))
+      (:symbol nil)
       (:none t))))
 
 (defun vm-value-str (x &optional string-table)
@@ -91,6 +96,7 @@
             (case type
               ((:int :string) payload)
               (:bool (if payload "true" "false"))
+              (:symbol (symbol-name payload))
               (:array (if (= 1 (array-rank payload))
                           (format nil "[~{~A~^, ~}]"
                                   (map 'list (lambda (x) (vm-value-str x string-table))
@@ -119,10 +125,12 @@
               (:int "i")
               (:string "s")
               (:bool "b")
+              (:symbol "sym")
               (:none "n"))
             (case type
               ((:int :string) payload)
               (:bool (if payload "true" "false"))
+              (:symbol (symbol-name payload))
               (:none "none")))))
 
 (defun vm-value-not (a)
@@ -203,7 +211,7 @@
           (:int (= p1 p2))
           ;; this works because all strings are interned
           ;; and true and false are constants
-          ((:string :bool) (eq p1 p2))
+          ((:string :bool :symbol) (eq p1 p2))
           (:none t))
         +vm-value-true+
         +vm-value-false+)))
@@ -213,6 +221,7 @@
     (if (case t1
           (:int (> p1 p2))
           (:string (string> p1 p2))
+          (:symbol (string> (symbol-name p1) (symbol-name p2)))
           (:bool (and (eq p1 t) (eq p2 nil)))
           (:none nil))
         +vm-value-true+
@@ -223,6 +232,7 @@
     (if (case t1
           (:int (< p1 p2))
           (:string (string< p1 p2))
+          (:symbol (string< (symbol-name p1) (symbol-name p2)))
           (:bool (and (eq p1 nil) (eq p2 t)))
           (:none nil))
         +vm-value-true+
@@ -292,7 +302,7 @@
   (unless (vm-value-p key)
     (error 'vm-internal-error :message "can only use vm-value as key into map"))
   (let ((type (vm-value-type key)) (payload (vm-value-payload key)))
-    (if (member type '(:int :string :bool :none))
+    (if (member type '(:int :string :bool :none :symbol))
         (list type payload)
         (error 'vm-internal-error
                :message "only scalar vm-values can be used as key into map"))))
@@ -303,6 +313,7 @@
       (:int    (vm-value-make-int payload))
       (:string (vm-value-make-string payload string-table))
       (:bool   (if payload +vm-value-true+ +vm-value-false+))
+      (:symbol (vm-value-make-symbol payload))
       (:none   +vm-value-none+))))
 
 (defun vm-value-map-has (map key)

@@ -39,6 +39,11 @@
     (is (eq :none (vm-value-type a)))
     (is (null (vm-value-payload a)))))
 
+(test make-symbol-literal
+  (let ((a (vm-value-make-literal :foo)))
+    (is (eq :symbol (vm-value-type a)))
+    (is (eq :foo (vm-value-payload a)))))
+
 (test not-does-its-thing
   (let ((a (vm-value-not (vm-value-make-literal 0))))
     (is (eq +vm-value-true+ a)))
@@ -55,6 +60,11 @@
     (is (eq +vm-value-false+ a)))
   (let ((a (vm-value-not +vm-value-true+)))
     (is (eq +vm-value-false+ a))))
+
+(test symbol-truthiness
+  (let ((sym (vm-value-make-literal :test)))
+    (is (not (vm-value-falsep sym)))
+    (is (eq +vm-value-false+ (vm-value-not sym)))))
 
 (test add-ints
   (let ((a (vm-value-add (vm-value-make-literal 100) (vm-value-make-literal 23))))
@@ -113,6 +123,12 @@
   (is (eq +vm-value-true+ (vm-value-eq +vm-value-false+ +vm-value-false+)))
   (is (eq +vm-value-false+ (vm-value-eq +vm-value-true+ +vm-value-false+))))
 
+(test symbol-eq
+  (let ((a (vm-value-make-literal :foo))
+        (b (vm-value-make-literal :bar)))
+    (is (eq +vm-value-true+ (vm-value-eq a a)))
+    (is (eq +vm-value-false+ (vm-value-eq a b)))))
+
 (test int-gt
   (let ((a (vm-value-make-literal 42))  (b (vm-value-make-literal 10)))
     (is (eq +vm-value-true+ (vm-value-gt a b)))
@@ -131,6 +147,13 @@
   (is (eq +vm-value-true+ (vm-value-gt +vm-value-true+ +vm-value-false+)))
   (is (eq +vm-value-false+ (vm-value-gt +vm-value-false+ +vm-value-true+))))
 
+(test symbol-gt
+  (let ((a (vm-value-make-literal :abc))
+        (b (vm-value-make-literal :xyz)))
+    (is (eq +vm-value-true+ (vm-value-gt b a)))
+    (is (eq +vm-value-false+ (vm-value-gt a b)))
+    (is (eq +vm-value-false+ (vm-value-gt a a)))))
+
 (test int-lt
   (let ((a (vm-value-make-literal 42))  (b (vm-value-make-literal 10)))
     (is (eq +vm-value-false+ (vm-value-lt a b)))
@@ -148,6 +171,13 @@
 (test bool-lt
   (is (eq +vm-value-true+ (vm-value-lt +vm-value-false+ +vm-value-true+)))
   (is (eq +vm-value-false+ (vm-value-lt +vm-value-true+ +vm-value-false+))))
+
+(test symbol-lt
+  (let ((a (vm-value-make-literal :abc))
+        (b (vm-value-make-literal :xyz)))
+    (is (eq +vm-value-false+ (vm-value-lt b a)))
+    (is (eq +vm-value-true+ (vm-value-lt a b)))
+    (is (eq +vm-value-false+ (vm-value-lt a a)))))
 
 (test gt-needs-same-type
   (signals vm-type-error
@@ -191,6 +221,10 @@
          (a (vm-value-make-literal "12345" :string-table string-table)))
     (is (= 0 (vm-value-payload (vm-value-strlen empty-string))))
     (is (= 5 (vm-value-payload (vm-value-strlen a))))))
+
+(test symbol-str
+  (let ((sym (vm-value-make-literal :hello)))
+    (is (string= "HELLO" (vm-value-str sym)))))
 
 ;;;;
 ;;;;  Vector tests
@@ -339,3 +373,16 @@
 (test map-printer-empty
   (let ((m (vm-value-make-map)))
     (is (string= "{}" (vm-value-str m)))))
+
+(test map-symbol-keys
+  (let ((m   (vm-value-make-map))
+        (k1  (vm-value-make-literal :foo))
+        (k2  (vm-value-make-literal :bar))
+        (v1  (vm-value-make-int 10))
+        (v2  (vm-value-make-int 20)))
+    (vm-value-map-set m k1 v1)
+    (vm-value-map-set m k2 v2)
+    (is (eq v1 (vm-value-map-get m k1)))
+    (is (eq v2 (vm-value-map-get m k2)))
+    (is (eq +vm-value-true+ (vm-value-map-has m k1)))
+    (is (eq +vm-value-false+ (vm-value-map-has m (vm-value-make-literal :baz))))))
