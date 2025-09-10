@@ -117,3 +117,8 @@
 (test map-get-type-error-non-map
   (let ((vm (setup #((map-get x 123 "foo")))))
     (signals vm-type-error (run-program vm))))
+
+(single-reg-test
+    to-str-int 'result #((const val 42) (to-str result val))
+  (is (eq :string (vm-value-type value)))
+  (is (string= "42" (vm-value-payload value))))

@@ -178,6 +178,10 @@
 
 (def-vm-value-op vm-value-strlen (:string) :int #'length)
 
+(defun vm-value-str (x &key string-table)
+  (vm-assert string-table "string-table must be provided for vm-value-str")
+  (vm-value-make-string (%vm-value-to-string x string-table) string-table))
+
 (defun vm-value-substr (s start end &key string-table)
   (let ((s-type (vm-value-type s))
         (start-type (vm-value-type start))

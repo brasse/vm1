@@ -172,6 +172,11 @@
                      dst
                      (vm-value-strlen (resolve s)))
                     '(:continue)))
+          (to-str (multiple-value-bind (dst x) (args 2)
+                    (set-reg
+                     dst
+                     (vm-value-str (resolve x) :string-table string-table))
+                    '(:continue)))
           (vec-make (multiple-value-bind (dst len) (args 2)
                       (set-reg
                        dst

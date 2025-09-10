@@ -226,6 +226,13 @@
   (let ((sym (vm-value-make-literal :hello)))
     (is (string= "HELLO" (%vm-value-to-string sym)))))
 
+(test vm-value-str
+  (let* ((string-table (make-hash-table))
+         (int-val (vm-value-make-literal 42))
+         (str-val (vm-value-str int-val :string-table string-table)))
+    (is (eq :string (vm-value-type str-val)))
+    (is (string= "42" (vm-value-payload str-val)))))
+
 ;;;;
 ;;;;  Vector tests
 ;;;;
