@@ -199,7 +199,7 @@
   (let* ((string-table (make-hash-table))
          (a (vm-value-make-literal "foo" :string-table string-table))
          (b (vm-value-make-literal 10)))
-    (signals vm-type-error (ab (vm-value-concat a b :string-table string-table)))))
+    (signals vm-type-error (vm-value-concat a b :string-table string-table))))
 
 (test substr-strings
   (let* ((string-table (make-hash-table))
@@ -224,7 +224,7 @@
 
 (test symbol-str
   (let ((sym (vm-value-make-literal :hello)))
-    (is (string= "HELLO" (vm-value-str sym)))))
+    (is (string= "HELLO" (%vm-value-to-string sym)))))
 
 ;;;;
 ;;;;  Vector tests
@@ -277,11 +277,11 @@
 (test vec-printer
   (let ((vec (vm-value-make-array (list (vm-value-make-int 2)))))
     (vm-value-array-set vec (list (vm-value-make-int 0)) (vm-value-make-int 10))
-    (is (string= "[10, none]" (vm-value-str vec)))))
+    (is (string= "[10, none]" (%vm-value-to-string vec)))))
 
 (test vec-empty-printer
   (let ((vec (vm-value-make-array (list (vm-value-make-int 0)))))
-    (is (string= "[]" (vm-value-str vec)))))
+    (is (string= "[]" (%vm-value-to-string vec)))))
 
 ;;;;
 ;;;;  Struct tests
@@ -295,7 +295,7 @@
   (let ((strtab (make-hash-table))
         (p (vm-value-make-struct 'p 2)))
     (vm-value-array-set p (list (vm-value-make-int 0)) (vm-value-make-int 5))
-    (is (string= "#<struct P {5, none}>" (vm-value-str p strtab)))))
+    (is (string= "#<struct P {5, none}>" (%vm-value-to-string p strtab)))))
 
 ;;;;
 ;;;;  Map tests
@@ -368,11 +368,11 @@
                       (vm-value-make-string "foo" strtab)
                       (vm-value-make-int 10))
     (is (string= "{foo: 10}"
-                 (vm-value-str m strtab)))))
+                 (%vm-value-to-string m strtab)))))
 
 (test map-printer-empty
   (let ((m (vm-value-make-map)))
-    (is (string= "{}" (vm-value-str m)))))
+    (is (string= "{}" (%vm-value-to-string m)))))
 
 (test map-symbol-keys
   (let ((m   (vm-value-make-map))

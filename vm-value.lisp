@@ -89,7 +89,7 @@
       (:symbol nil)
       (:none t))))
 
-(defun vm-value-str (x &optional string-table)
+(defun %vm-value-to-string (x &optional string-table)
   (let ((type (vm-value-type x))
         (payload (vm-value-payload x)))
     (format nil "~A"
@@ -99,22 +99,22 @@
               (:symbol (symbol-name payload))
               (:array (if (= 1 (array-rank payload))
                           (format nil "[~{~A~^, ~}]"
-                                  (map 'list (lambda (x) (vm-value-str x string-table))
+                                  (map 'list (lambda (x) (%vm-value-to-string x string-table))
                                        payload))
                           "[ sorry, print not implemented for n-dimensional arrays ]"))
               (:struct
                (format nil "#<struct ~A {~{~A~^, ~}}>"
                        (vm-value-id x)
-                       (map 'list (lambda (x) (vm-value-str x string-table)) payload)))
+                       (map 'list (lambda (x) (%vm-value-to-string x string-table)) payload)))
               (:map
                (format nil "{~{~A: ~A~^, ~}}"
                        (loop for k being the hash-keys of payload using (hash-value v)
                              ;; reconstruct the vm-value from the key
                              ;; it might be a string so that's why we need the string-table
-                             collect (vm-value-str
+                             collect (%vm-value-to-string
                                       (%key->vm-value k string-table)
                                       string-table)
-                             collect (vm-value-str v))))
+                             collect (%vm-value-to-string v))))
               (:none "none")))))
 
 (defun %vm-value-str (x)
