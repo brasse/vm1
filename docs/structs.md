@@ -29,36 +29,27 @@ the same as array element access.
 ## vm-value functions
 
 The VM will keep track of struct definitions in a struct table. This
-table is some data structure that keeps track of struct id to struct
-definition mappings. The table is most likely implemented with a map.
+table is some data structure that keeps track of struct id mappings to
+field id to field index mappings (a map of maps). The table is most
+likely implemented with a map.
 
-Struct definitions look like this:
-
-```
-(defstruct struct-definition
-  id ;; :point, :user
-  field-map ;; map containing field id to field idx mappings
-            ;; :x -> 0, :y -> 1
-)
-```
-
-### (vm-value-struct-define (struct-id fields) ...)
+### (vm-value-define-struct (struct-table struct-id fields) ...)
 
 Define a struct with the specified id and fields.
 
 Needs check that no struct with this id is already defined and store
 the struct definition.
 
-e.g. `(vm-value-struct-define :point '(:x :y))`
+e.g. `(vm-value-define-struct st :point '(:x :y))`
 
-### (vm-struct-make (struct-id) ...)
+### (vm-make-struct (struct-table struct-id) ...)
 
 Create a struct according to the struct definition referenced by
 struct id. All fields are set to `none`.
 
-e.g. `(vm-struct-make :point)`
+e.g. `(vm-make-struct st :point)`
 
-### (vm-value-struct-set struct field-id value)
+### (vm-value-struct-set struct-table struct field-id value)
 
 Set the field referenced by `field-id` in `struct` to `value`.
 
@@ -70,9 +61,9 @@ Set the field referenced by `field-id` in `struct` to `value`.
   - Signal an error if the field doens't exist
 - Write `value` to the correct position in the underlying array
 
-e.g `(vm-value-struct-set p :x (vm-value-make-int 12))`
+e.g `(vm-value-struct-set st p :x (vm-value-make-int 12))`
 
-### (vm-value-struct-get struct field-id)
+### (vm-value-struct-get struct-table struct field-id)
 
 Return the value in the field referenced by `field-id` in `struct`.
 
@@ -83,7 +74,7 @@ Return the value in the field referenced by `field-id` in `struct`.
   - Signal an error if the field doens't exist
 - Return the value at the correct position in the underlying array
 
-e.g `(vm-value-struct-get p :x)`
+e.g `(vm-value-struct-get st p :x)`
 
 ## VM instructions
 

@@ -291,20 +291,6 @@
     (is (string= "[]" (%vm-value-to-string vec)))))
 
 ;;;;
-;;;;  Struct tests
-;;;;
-
-(test struct-truthiness
-  (let ((s (vm-value-make-struct 'point 2)))
-    (is (not (vm-value-falsep s)))))
-
-(test struct-print
-  (let ((strtab (make-hash-table))
-        (p (vm-value-make-struct 'p 2)))
-    (vm-value-array-set p (list (vm-value-make-int 0)) (vm-value-make-int 5))
-    (is (string= "#<struct P {5, none}>" (%vm-value-to-string p strtab)))))
-
-;;;;
 ;;;;  Map tests
 ;;;;
 

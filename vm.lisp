@@ -5,7 +5,8 @@
   pc
   frame-stack
   heap
-  string-table)
+  string-table
+  struct-table)
 
 (defun current-instruction ()
   (declare (special *instruction*))
@@ -244,7 +245,8 @@
   (let ((vm (make-vm-state :program (assemble program)
                            :pc 0
                            :frame-stack (list (make-frame))
-                           :string-table (make-hash-table))))
+                           :string-table (make-hash-table)
+                           :struct-table (make-hash-table))))
     (run-program
      vm
      :trace trace

@@ -6,9 +6,9 @@
 
   ;; Each struct gets its own unique ID. The VM will make no
   ;; difference between arrays and structs. Structs are implemented
-  ;; using arrays and the language/compiler layer keeps track of
-  ;; struct definitions, assigns a unique ID to each of them and maps
-  ;; fields to slots in the array.
+  ;; using arrays. The VM will inspect the id when getting and setting
+  ;; fields and verifying that the fields exist using struct definitions
+  ;; inside a struct table.
   id)
 
 (declaim (inline %assert-type))
@@ -54,11 +54,6 @@
                             :actual dimension-types))
     (make-vm-value :type :array
                    :payload (make-array dimension-values :initial-element +vm-value-none+))))
-
-(defun vm-value-make-struct (id n)
-  (make-vm-value :type :struct
-                 :payload (make-array n :initial-element +vm-value-none+)
-                 :id id))
 
 (defun vm-value-make-map ()
   (make-vm-value :type :map
@@ -339,3 +334,53 @@
     (if present-p
         value
         +vm-value-none+)))
+
+(defun vm-value-define-struct (struct-table struct-id field-ids)
+  (if (nth-value 1 (gethash struct-id struct-table))
+      (error 'vm-internal-error
+             :message (format nil "struct with id ~A already defined" struct-id))
+      (setf (gethash struct-id struct-table)
+            (loop for field-id in field-ids
+                  for i from 0
+                  with field-map = (make-hash-table)
+                  do (setf (gethash field-id field-map) i)
+                  finally (return field-map)))))
+
+(defun vm-value-make-struct (struct-table struct-id)
+  (multiple-value-bind (field-ids present-p) (gethash struct-id struct-table)
+    (unless present-p
+      (error 'vm-internal-error
+             :message (format nil "no struct definition with id ~A" struct-id)))
+    (make-vm-value :type :struct
+                   :id struct-id
+                   :payload (make-array
+                             (hash-table-count field-ids)
+                             :initial-element +vm-value-none+))))
+
+(defun vm-value-struct-get (struct-table struct field-id)
+  (%assert-type struct :struct)
+  (let ((struct-id (vm-value-id struct)))
+    (multiple-value-bind (field-ids present-p) (gethash struct-id struct-table)
+      (unless present-p
+        (error 'vm-internal-error
+               :message (format nil "no struct definition with id ~A" struct-id)))
+      (multiple-value-bind (field-idx present-p) (gethash field-id field-ids)
+        (unless present-p
+          (error 'vm-internal-error
+                 :message (format nil "no field ~A in struct ~A" field-id struct-id)))
+        (vm-value-array-get struct (list (vm-value-make-int field-idx)))))))
+
+(defun vm-value-struct-set (struct-table struct field-id value)
+  (%assert-type struct :struct)
+  (unless (vm-value-p value)
+    (error 'vm-internal-error :message "can only use vm-value as value into struct"))
+  (let ((struct-id (vm-value-id struct)))
+    (multiple-value-bind (field-ids present-p) (gethash struct-id struct-table)
+      (unless present-p
+        (error 'vm-internal-error
+               :message (format nil "no struct definition with id ~A" struct-id)))
+      (multiple-value-bind (field-idx present-p) (gethash field-id field-ids)
+        (unless present-p
+          (error 'vm-internal-error
+                 :message (format nil "no field ~A in struct ~A" field-id struct-id)))
+        (vm-value-array-set struct (list (vm-value-make-int field-idx)) value)))))
